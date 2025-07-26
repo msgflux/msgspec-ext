@@ -4,9 +4,6 @@ name: Release
 run-name: Release version ${{ github.ref_name }} of the SDK
 
 on:
-    push:
-      tags:
-        - "v*"
     workflow_dispatch:
   
 # ensures only a single instance of this release workflow is running at any one time
@@ -22,7 +19,7 @@ env:
 jobs:
   get_tag_details:
     name: Get Tag Details
-    runs-on: msgspec-ext-python-runner
+    runs-on: ubuntu-latest
     outputs:
       tag_name: ${{ steps.release.outputs.tag_name }}
       new_version: ${{ steps.release.outputs.new_version }}
@@ -58,7 +55,7 @@ jobs:
   setup_build_and_publish:
     name: Build Package and Publish to PyPI
     needs: [get_tag_details]
-    runs-on: msgspec-ext-python-runner
+    runs-on: ubuntu-latest
     permissions:
       contents: read
       id-token: write # Required for trusted publishing to PyPI
@@ -98,7 +95,7 @@ jobs:
   github_release:
     name: Create GitHub Release
     needs: [get_tag_details, setup_build_and_publish]
-    runs-on: msgspec-ext-python-runner
+    runs-on: ubuntu-latest
     permissions:
       contents: write
     steps:
