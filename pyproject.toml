@@ -1,0 +1,121 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "msgspec-ext"
+dynamic = ["version"]
+description = "Settings management using msgspec"
+readme = "README.md"
+license = "MIT"
+authors = [
+    { name = "Vilson Rodrigues", email = "vilson@msgflux.com" }
+]
+requires-python = ">=3.9"
+dependencies = [
+    "msgspec>=0.19.0",
+    "python-dotenv>=1.1.1",
+]
+classifiers = [
+  "Development Status :: 4 - Beta",
+  "Intended Audience :: Developers",
+  "Intended Audience :: Science/Research",
+  "License :: OSI Approved :: MIT License",
+  "Operating System :: MacOS :: MacOS X",
+  "Operating System :: POSIX :: Linux",
+  "Operating System :: Microsoft :: Windows",
+  "Programming Language :: Python",
+  "Programming Language :: Python :: 3.9",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
+  "Topic :: Software Development :: Libraries",
+  "Topic :: Software Development :: Libraries :: Python Modules"
+]
+
+[tool.hatch.version]
+path = "src/msgspec_ext/version.py"
+
+[project.urls]
+Homepage = "https://github.com/msgflux/msgspec-ext"
+Documentation = "https://github.com/msgflux/msgspec-ext"
+Repository = "https://github.com/msgflux/msgspec-ext"
+
+[dependency-groups]
+dev = [
+    "pytest>=8.4.1",
+    "ruff>=0.12.5",
+]
+
+[tool.ruff]
+target-version = "py39"
+line-length = 88
+
+[tool.ruff.lint]
+select = [
+  "A",
+  "ARG",
+  "B",
+  "C",
+  "D",
+  "DTZ",
+  "E",
+  "EM",
+  "F",
+  "FBT",
+  "I",
+  "ICN",
+  "ISC",
+  "N",
+  "PLC",
+  "PLE",
+  "PLR",
+  "PLW",
+  "Q",
+  "RUF",
+  "S",
+  "T",
+  "TID",
+  "UP",
+  "W",
+  "YTT",
+]
+ignore = [
+  "D100",    # Allow missing docstring in top level module
+  "D104",    # Allow missing docstring in public package
+  "D105",    # Allow missing docstring in magic method
+  "D203",    # Allow docstring directly below class definition (as enforced by D211)
+  "D213",    # Allow multi-line-summary on first line of docstring (as enforced by D212)
+  "D401",    # Allow non imperative mood in docstring
+  "D413",    # Allow no new line at end of docstring.
+  "EM101",   # Allow `raise ValueError(msg)`
+  "EM102",   # Allow f strings in `raise` statements
+  "FBT003",  # Allow boolean positional values in function calls, like `dict.get(... True)`
+  "TID252",  # Allow relative imports
+  "UP007",   # Allow `from typing import Optional` instead of `X | None`
+  "UP035",   # Allow `from typing import Sequence` instead of `Sequence[X]`
+  "PLR0913",
+]
+unfixable = ["F401"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["msgspec_ext"]
+
+[tool.ruff.lint.flake8-tidy-imports]
+ban-relative-imports = "all"
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**/*" = [
+  "D",
+  "PLR0911",
+  "PLR0912",
+  "PLR0915",
+  "PLR2004",
+  "S101",
+  "S105",
+  "S106",
+  "S107",
+  "TID252",
+]
+"examples/**/*" = ["D", "S101", "T201"]
