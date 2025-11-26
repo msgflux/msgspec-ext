@@ -1,16 +1,16 @@
 import json
 import os
-from typing import Any, Dict, Optional, Type
 from pathlib import Path
+from typing import Any
+
 import msgspec
 from dotenv import load_dotenv
 
-
-__all__ = ["SettingsConfigDict", "BaseSettings"]
+__all__ = ["BaseSettings", "SettingsConfigDict"]
 
 
 class SettingsConfigDict(msgspec.Struct):
-    env_file: Optional[str] = None
+    env_file: str | None = None
     env_file_encoding: str = "utf-8"
     case_sensitive: bool = False
     env_prefix: str = ""
@@ -37,7 +37,7 @@ class BaseSettings:
                     dotenv_path=env_path, encoding=cls.model_config.env_file_encoding
                 )
 
-    def _get_env_vars(self) -> Dict[str, Any]:
+    def _get_env_vars(self) -> dict[str, Any]:
         """Gets relevant environment variables based on type annotations."""
         env_vars = {}
 
@@ -55,12 +55,12 @@ class BaseSettings:
                     env_vars[field_name] = converted_value
                 except (ValueError, json.JSONDecodeError) as e:
                     raise ValueError(
-                        f"Error parsing environment variable {env_name}: {str(e)}"
+                        f"Error parsing environment variable {env_name}: {e!s}"
                     )
 
         return env_vars
 
-    def _get_fields_info(self) -> Dict[str, Any]:
+    def _get_fields_info(self) -> dict[str, Any]:
         """Gets information about fields, including Field settings."""
         fields = {}
         for field_name in self.__annotations__:
@@ -108,7 +108,7 @@ class BaseSettings:
             name = f"{self.model_config.env_prefix}{name}"
         return name
 
-    def _convert_env_value(self, value: str, field_type: Type) -> Any:
+    def _convert_env_value(self, value: str, field_type: type) -> Any:
         """Converts an environment variable string to the appropriate type."""
         if field_type == bool:
             return value.lower() in ("true", "1", "t", "y", "yes")
@@ -141,7 +141,7 @@ class BaseSettings:
             return field_info["default"]
         return None
 
-    def _validate_and_set_values(self, values: Dict[str, Any]):
+    def _validate_and_set_values(self, values: dict[str, Any]):
         """Validate and set values using msgspec."""
         for field_name, field_info in self._fields.items():
             value = values.get(field_name)
@@ -154,9 +154,7 @@ class BaseSettings:
                     validated_value = msgspec.convert(value, field_info["type"])
                     setattr(self, field_name, validated_value)
                 except msgspec.ValidationError as e:
-                    raise ValueError(
-                        f"Validation error for field {field_name}: {str(e)}"
-                    )
+                    raise ValueError(f"Validation error for field {field_name}: {e!s}")
             elif (
                 not field_info["has_default"] and not field_info["has_default_factory"]
             ):
@@ -165,7 +163,7 @@ class BaseSettings:
         # Stores schema after validation
         self._schema = self._generate_schema()
 
-    def _generate_schema(self) -> Dict[str, Any]:
+    def _generate_schema(self) -> dict[str, Any]:
         """Generates the JSON Schema for the class."""
 
         def schema_hook(typ):
@@ -189,7 +187,7 @@ class BaseSettings:
 
         return msgspec.json.schema(self.__class__, schema_hook=schema_hook)
 
-    def model_dump(self) -> Dict[str, Any]:
+    def model_dump(self) -> dict[str, Any]:
         """Returns data as a dict."""
         return {
             field_name: getattr(self, field_name)
@@ -201,6 +199,6 @@ class BaseSettings:
         """Returns data as a JSON string."""
         return msgspec.json.encode(self.model_dump()).decode()
 
-    def schema(self) -> Dict[str, Any]:
+    def schema(self) -> dict[str, Any]:
         """Returns the JSON schema of the data."""
         return self._schema

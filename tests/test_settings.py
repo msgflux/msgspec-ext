@@ -1,9 +1,8 @@
-"""Tests for Settings class."""
+"""Tests for BaseSettings class."""
 
-import pytest
-from msgspec_ext import Settings
+from msgspec_ext import BaseSettings
 
 
 def test_settings_import():
-    """Test that Settings can be imported."""
-    assert Settings is not None
+    """Test that BaseSettings can be imported."""
+    assert BaseSettings is not None
