@@ -59,7 +59,7 @@ jobs:
         run: uv run pytest -v --cov=src/msgspec_ext --cov-report=xml --cov-report=term
 
       - name: Upload coverage
-        uses: codecov/codecov-action@v4
+        uses: codecov/codecov-action@v5
         if: matrix.python-version == '3.12'
         with:
           file: ./coverage.xml
