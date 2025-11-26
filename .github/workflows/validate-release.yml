@@ -1,0 +1,83 @@
+name: Validate Release
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'src/msgspec_ext/version.py'
+
+permissions:
+  contents: read
+
+jobs:
+  validate-release-files:
+    name: Validate Only Release Files Changed
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 2  # Need previous commit to compare
+
+      - name: Validate release commit
+        run: |
+          echo "🔒 Security Validation: Checking release commit files"
+          echo ""
+
+          # Get files changed in the last commit
+          CHANGED_FILES=$(git diff --name-only HEAD~1 HEAD)
+
+          echo "Files changed in this commit:"
+          echo "$CHANGED_FILES"
+          echo ""
+
+          # Check if this is a release commit (version.py was modified)
+          if echo "$CHANGED_FILES" | grep -q "src/msgspec_ext/version.py"; then
+            echo "✓ This is a release commit (version.py modified)"
+            echo ""
+
+            # Allowed files for release commits
+            ALLOWED_FILES="src/msgspec_ext/version.py
+          CHANGELOG.md"
+
+            # Check each changed file
+            UNAUTHORIZED_FILES=""
+            while IFS= read -r file; do
+              # Skip empty lines
+              [ -z "$file" ] && continue
+
+              # Check if file is in allowed list
+              if [[ "$file" != "src/msgspec_ext/version.py" ]] && [[ "$file" != "CHANGELOG.md" ]]; then
+                UNAUTHORIZED_FILES="${UNAUTHORIZED_FILES}${file}\n"
+              fi
+            done <<< "$CHANGED_FILES"
+
+            if [ -n "$UNAUTHORIZED_FILES" ]; then
+              echo "❌ SECURITY ERROR: Unauthorized files modified in release commit!"
+              echo ""
+              echo "Release commits can ONLY modify:"
+              echo "  - src/msgspec_ext/version.py"
+              echo "  - CHANGELOG.md"
+              echo ""
+              echo "Unauthorized modifications detected:"
+              echo -e "$UNAUTHORIZED_FILES"
+              echo ""
+              echo "This indicates a potential security issue:"
+              echo "  - Supply chain attack attempt"
+              echo "  - Compromised release script"
+              echo "  - Accidental file inclusion"
+              echo ""
+              echo "⚠️  This commit will be blocked from merging!"
+              exit 1
+            else
+              echo "✅ Security validation PASSED"
+              echo "   Only authorized files were modified"
+              echo ""
+              echo "Modified files:"
+              echo "$CHANGED_FILES"
+            fi
+          else
+            echo "ℹ️  Not a release commit (version.py not modified)"
+            echo "   Skipping release file validation"
+          fi
