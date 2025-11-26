@@ -6,6 +6,7 @@ import tempfile
 import time
 from pathlib import Path
 
+
 # Test with msgspec-ext
 def benchmark_msgspec_ext(iterations: int = 1000) -> float:
     """Benchmark msgspec-ext settings loading."""
@@ -13,8 +14,7 @@ def benchmark_msgspec_ext(iterations: int = 1000) -> float:
 
     class AppSettings(BaseSettings):
         model_config = SettingsConfigDict(
-            env_file=".env.msgspec",
-            env_nested_delimiter="__"
+            env_file=".env.msgspec", env_nested_delimiter="__"
         )
 
         app_name: str

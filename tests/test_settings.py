@@ -1,4 +1,5 @@
 """Tests for Settings class."""
+
 import pytest
 from msgspec_ext import Settings
 
