@@ -11,7 +11,7 @@ license = "MIT"
 authors = [
     { name = "Vilson Rodrigues", email = "vilson@msgflux.com" }
 ]
-requires-python = ">=3.9"
+requires-python = ">=3.10"
 dependencies = [
     "msgspec>=0.19.0",
     "python-dotenv>=1.1.1",
@@ -25,7 +25,6 @@ classifiers = [
   "Operating System :: POSIX :: Linux",
   "Operating System :: Microsoft :: Windows",
   "Programming Language :: Python",
-  "Programming Language :: Python :: 3.9",
   "Programming Language :: Python :: 3.10",
   "Programming Language :: Python :: 3.11",
   "Programming Language :: Python :: 3.12",
@@ -44,12 +43,16 @@ Repository = "https://github.com/msgflux/msgspec-ext"
 
 [dependency-groups]
 dev = [
+    "packaging>=25.0",
     "pytest>=8.4.1",
+    "pytest-benchmark>=5.2.3",
+    "pytest-cov>=7.0.0",
     "ruff>=0.12.5",
+    "twine>=6.2.0",
 ]
 
 [tool.ruff]
-target-version = "py39"
+target-version = "py310"
 line-length = 88
 
 [tool.ruff.lint]
@@ -83,19 +86,25 @@ select = [
 ]
 ignore = [
   "D100",    # Allow missing docstring in top level module
+  "D101",    # Allow missing docstring in public class
   "D104",    # Allow missing docstring in public package
   "D105",    # Allow missing docstring in magic method
+  "D107",    # Allow missing docstring in __init__
   "D203",    # Allow docstring directly below class definition (as enforced by D211)
   "D213",    # Allow multi-line-summary on first line of docstring (as enforced by D212)
   "D401",    # Allow non imperative mood in docstring
   "D413",    # Allow no new line at end of docstring.
+  "E501",    # Allow lines longer than 88 characters
+  "E721",    # Allow type comparisons with ==
   "EM101",   # Allow `raise ValueError(msg)`
   "EM102",   # Allow f strings in `raise` statements
   "FBT003",  # Allow boolean positional values in function calls, like `dict.get(... True)`
   "TID252",  # Allow relative imports
   "UP007",   # Allow `from typing import Optional` instead of `X | None`
   "UP035",   # Allow `from typing import Sequence` instead of `Sequence[X]`
+  "PLR0911", # Allow more than 6 return statements
   "PLR0913",
+  "B904",    # Allow raise in except without from
 ]
 unfixable = ["F401"]
 
@@ -119,3 +128,4 @@ ban-relative-imports = "all"
   "TID252",
 ]
 "examples/**/*" = ["D", "S101", "T201"]
+"benchmark.py" = ["D", "S101", "S105", "T201", "PLC0415", "F841", "C901", "PLR0915"]

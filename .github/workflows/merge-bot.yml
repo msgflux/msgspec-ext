@@ -1,0 +1,484 @@
+name: Merge Bot
+
+on:
+  issue_comment:
+    types: [created]
+
+permissions:
+  contents: write
+  pull-requests: write
+  issues: write
+
+jobs:
+  merge-command:
+    name: Handle Merge Command
+    runs-on: ubuntu-latest
+    # Only run on PR comments
+    if: github.event.issue.pull_request
+    steps:
+      - name: Parse command
+        id: command
+        uses: actions/github-script@v8
+        with:
+          script: |
+            const comment = context.payload.comment.body.toLowerCase().trim();
+            const user = context.payload.comment.user.login;
+
+            core.info(`Comment from ${user}: ${comment}`);
+
+            // Check for merge command (case insensitive)
+            // Supported formats:
+            // - @mergebot merge
+            // - @merge-bot merge
+            // - /merge
+            // - merge (if alone)
+            const mergePatterns = [
+              /@merge-?bot\s+merge/i,
+              /^\/merge$/i,
+              /^merge$/i,
+            ];
+
+            const isMergeCommand = mergePatterns.some(pattern => pattern.test(comment));
+
+            if (!isMergeCommand) {
+              core.info('Not a merge command, skipping');
+              return;
+            }
+
+            core.setOutput('should_merge', 'true');
+            core.info('✅ Merge command detected');
+
+      - name: React to comment
+        if: steps.command.outputs.should_merge == 'true'
+        uses: actions/github-script@v8
+        with:
+          script: |
+            // Add rocket emoji to show bot is processing
+            await github.rest.reactions.createForIssueComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              comment_id: context.payload.comment.id,
+              content: 'rocket'
+            });
+
+      - name: Check permissions
+        if: steps.command.outputs.should_merge == 'true'
+        id: check_perms
+        uses: actions/github-script@v8
+        with:
+          script: |
+            const user = context.payload.comment.user.login;
+
+            // Check if user has write access
+            try {
+              const { data: permission } = await github.rest.repos.getCollaboratorPermissionLevel({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                username: user
+              });
+
+              const hasPermission = ['admin', 'write'].includes(permission.permission);
+
+              if (!hasPermission) {
+                core.setFailed(`❌ @${user} does not have permission to merge (permission: ${permission.permission})`);
+
+                // Comment on PR
+                await github.rest.issues.createComment({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  issue_number: context.payload.issue.number,
+                  body: `❌ @${user} you don't have permission to merge PRs. Only collaborators with write access can use merge commands.`
+                });
+
+                return;
+              }
+
+              core.info(`✅ User ${user} has ${permission.permission} access`);
+              core.setOutput('has_permission', 'true');
+            } catch (error) {
+              core.setFailed(`Error checking permissions: ${error.message}`);
+            }
+
+      - name: Get PR info
+        if: steps.check_perms.outputs.has_permission == 'true'
+        id: pr_info
+        uses: actions/github-script@v8
+        with:
+          script: |
+            const { data: pr } = await github.rest.pulls.get({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              pull_number: context.payload.issue.number
+            });
+
+            core.setOutput('mergeable', pr.mergeable);
+            core.setOutput('draft', pr.draft);
+            core.setOutput('sha', pr.head.sha);
+            core.setOutput('title', pr.title);
+
+            core.info(`PR #${pr.number}: ${pr.title}`);
+            core.info(`- Mergeable: ${pr.mergeable}`);
+            core.info(`- Draft: ${pr.draft}`);
+            core.info(`- SHA: ${pr.head.sha}`);
+
+      - name: Check if PR is ready
+        if: steps.check_perms.outputs.has_permission == 'true'
+        id: ready
+        uses: actions/github-script@v8
+        with:
+          script: |
+            const mergeable = '${{ steps.pr_info.outputs.mergeable }}';
+            const draft = '${{ steps.pr_info.outputs.draft }}';
+
+            if (draft === 'true') {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.payload.issue.number,
+                body: '❌ Cannot merge: PR is still a draft. Please mark it as ready for review first.'
+              });
+              core.setFailed('PR is draft');
+              return;
+            }
+
+            if (mergeable === 'false') {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.payload.issue.number,
+                body: '❌ Cannot merge: PR has conflicts or is not mergeable. Please resolve conflicts first.'
+              });
+              core.setFailed('PR not mergeable');
+              return;
+            }
+
+            core.setOutput('ready', 'true');
+
+      - name: Wait for checks
+        if: steps.ready.outputs.ready == 'true'
+        id: wait_checks
+        uses: actions/github-script@v8
+        with:
+          script: |
+            const sha = '${{ steps.pr_info.outputs.sha }}';
+            const maxWaitMinutes = 10;
+            const pollInterval = 10000; // 10 seconds
+            const maxAttempts = (maxWaitMinutes * 60 * 1000) / pollInterval;
+
+            let attempt = 0;
+
+            while (attempt < maxAttempts) {
+              const { data: checks } = await github.rest.checks.listForRef({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                ref: sha
+              });
+
+              const pendingChecks = checks.check_runs.filter(
+                check => check.status !== 'completed'
+              );
+
+              const failedChecks = checks.check_runs.filter(
+                check => check.conclusion === 'failure' || check.conclusion === 'cancelled'
+              );
+
+              if (failedChecks.length > 0) {
+                const failedNames = failedChecks.map(c => c.name).join(', ');
+                await github.rest.issues.createComment({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  issue_number: context.payload.issue.number,
+                  body: `❌ Cannot merge: The following checks failed:\n\n${failedChecks.map(c => `- ❌ ${c.name}`).join('\n')}\n\nPlease fix the issues and try again.`
+                });
+                core.setFailed(`Failed checks: ${failedNames}`);
+                return;
+              }
+
+              if (pendingChecks.length === 0) {
+                core.info('✅ All checks passed');
+                core.setOutput('checks_passed', 'true');
+                return;
+              }
+
+              const pendingNames = pendingChecks.map(c => c.name).join(', ');
+              core.info(`Waiting for checks: ${pendingNames} (attempt ${attempt + 1}/${maxAttempts})`);
+
+              await new Promise(resolve => setTimeout(resolve, pollInterval));
+              attempt++;
+            }
+
+            // Timeout
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.payload.issue.number,
+              body: `⏱️ Timeout waiting for checks to complete (waited ${maxWaitMinutes} minutes).\n\nYou can try the merge command again once checks complete.`
+            });
+            core.setFailed('Timeout waiting for checks');
+
+      - name: Merge PR
+        if: steps.wait_checks.outputs.checks_passed == 'true'
+        uses: actions/github-script@v8
+        with:
+          script: |
+            const user = context.payload.comment.user.login;
+            const title = '${{ steps.pr_info.outputs.title }}';
+
+            try {
+              await github.rest.pulls.merge({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                pull_number: context.payload.issue.number,
+                merge_method: 'squash',
+                commit_title: title,
+                commit_message: ''
+              });
+
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.payload.issue.number,
+                body: `✅ PR merged successfully by @${user}!`
+              });
+
+              // Add +1 reaction to original comment
+              await github.rest.reactions.createForIssueComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                comment_id: context.payload.comment.id,
+                content: '+1'
+              });
+
+              core.info('✅ PR merged successfully');
+            } catch (error) {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.payload.issue.number,
+                body: `❌ Failed to merge PR: ${error.message}`
+              });
+              core.setFailed(`Merge failed: ${error.message}`);
+            }
+
+      - name: Delete branch
+        if: steps.wait_checks.outputs.checks_passed == 'true'
+        uses: actions/github-script@v8
+        with:
+          script: |
+            const { data: pr } = await github.rest.pulls.get({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              pull_number: context.payload.issue.number
+            });
+
+            // Don't delete main or protected branches
+            if (pr.head.ref === 'main' || pr.head.ref.startsWith('release/')) {
+              core.info('Skipping branch deletion for protected branch');
+              return;
+            }
+
+            try {
+              await github.rest.git.deleteRef({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                ref: `heads/${pr.head.ref}`
+              });
+              core.info(`🗑️ Deleted branch: ${pr.head.ref}`);
+            } catch (error) {
+              core.warning(`Failed to delete branch: ${error.message}`);
+            }
+
+  update-command:
+    name: Handle Update Command
+    runs-on: ubuntu-latest
+    # Only run on PR comments
+    if: github.event.issue.pull_request
+    steps:
+      - name: Parse command
+        id: command
+        uses: actions/github-script@v8
+        with:
+          script: |
+            const comment = context.payload.comment.body.toLowerCase().trim();
+            const user = context.payload.comment.user.login;
+
+            core.info(`Comment from ${user}: ${comment}`);
+
+            // Check for update command (case insensitive)
+            // Supported formats:
+            // - @mergebot update
+            // - @merge-bot update
+            // - /update
+            // - update (if alone)
+            const updatePatterns = [
+              /@merge-?bot\s+update/i,
+              /^\/update$/i,
+              /^update$/i,
+            ];
+
+            const isUpdateCommand = updatePatterns.some(pattern => pattern.test(comment));
+
+            if (!isUpdateCommand) {
+              core.info('Not an update command, skipping');
+              return;
+            }
+
+            core.setOutput('should_update', 'true');
+            core.info('✅ Update command detected');
+
+      - name: React to comment
+        if: steps.command.outputs.should_update == 'true'
+        uses: actions/github-script@v8
+        with:
+          script: |
+            // Add eyes emoji to show bot is processing
+            await github.rest.reactions.createForIssueComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              comment_id: context.payload.comment.id,
+              content: 'eyes'
+            });
+
+      - name: Check permissions
+        if: steps.command.outputs.should_update == 'true'
+        id: check_perms
+        uses: actions/github-script@v8
+        with:
+          script: |
+            const user = context.payload.comment.user.login;
+
+            // Check if user has write access
+            try {
+              const { data: permission } = await github.rest.repos.getCollaboratorPermissionLevel({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                username: user
+              });
+
+              const hasPermission = ['admin', 'write'].includes(permission.permission);
+
+              if (!hasPermission) {
+                core.setFailed(`❌ @${user} does not have permission to update PRs (permission: ${permission.permission})`);
+
+                // Comment on PR
+                await github.rest.issues.createComment({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  issue_number: context.payload.issue.number,
+                  body: `❌ @${user} you don't have permission to update PRs. Only collaborators with write access can use update commands.`
+                });
+
+                return;
+              }
+
+              core.info(`✅ User ${user} has ${permission.permission} access`);
+              core.setOutput('has_permission', 'true');
+            } catch (error) {
+              core.setFailed(`Error checking permissions: ${error.message}`);
+            }
+
+      - name: Get PR info
+        if: steps.check_perms.outputs.has_permission == 'true'
+        id: pr_info
+        uses: actions/github-script@v8
+        with:
+          script: |
+            const { data: pr } = await github.rest.pulls.get({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              pull_number: context.payload.issue.number
+            });
+
+            core.setOutput('base_branch', pr.base.ref);
+            core.setOutput('head_branch', pr.head.ref);
+            core.setOutput('head_repo', pr.head.repo.full_name);
+            core.setOutput('base_repo', pr.base.repo.full_name);
+
+            core.info(`PR #${pr.number}: ${pr.title}`);
+            core.info(`- Base: ${pr.base.ref}`);
+            core.info(`- Head: ${pr.head.ref}`);
+            core.info(`- Same repo: ${pr.head.repo.full_name === pr.base.repo.full_name}`);
+
+      - name: Checkout PR branch
+        if: steps.check_perms.outputs.has_permission == 'true'
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ steps.pr_info.outputs.head_branch }}
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Update branch
+        if: steps.check_perms.outputs.has_permission == 'true'
+        id: update
+        run: |
+          BASE_BRANCH="${{ steps.pr_info.outputs.base_branch }}"
+          HEAD_BRANCH="${{ steps.pr_info.outputs.head_branch }}"
+
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+          echo "Fetching $BASE_BRANCH..."
+          git fetch origin "$BASE_BRANCH"
+
+          echo "Merging origin/$BASE_BRANCH into $HEAD_BRANCH..."
+          if git merge "origin/$BASE_BRANCH" -m "chore: Update branch with latest changes from $BASE_BRANCH"; then
+            echo "merge_success=true" >> $GITHUB_OUTPUT
+            echo "✅ Branch updated successfully"
+          else
+            echo "merge_success=false" >> $GITHUB_OUTPUT
+            git merge --abort || true
+            echo "❌ Merge failed - conflicts detected"
+            exit 1
+          fi
+
+      - name: Push changes
+        if: steps.update.outputs.merge_success == 'true'
+        run: |
+          HEAD_BRANCH="${{ steps.pr_info.outputs.head_branch }}"
+          echo "Pushing changes to $HEAD_BRANCH..."
+          git push origin "$HEAD_BRANCH"
+
+      - name: Comment success
+        if: steps.update.outputs.merge_success == 'true'
+        uses: actions/github-script@v8
+        with:
+          script: |
+            const user = context.payload.comment.user.login;
+            const baseBranch = '${{ steps.pr_info.outputs.base_branch }}';
+
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.payload.issue.number,
+              body: `✅ Branch updated successfully by @${user}!\n\nMerged latest changes from \`${baseBranch}\`.`
+            });
+
+            // Add +1 reaction to original comment
+            await github.rest.reactions.createForIssueComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              comment_id: context.payload.comment.id,
+              content: '+1'
+            });
+
+      - name: Comment failure
+        if: failure() && steps.check_perms.outputs.has_permission == 'true'
+        uses: actions/github-script@v8
+        with:
+          script: |
+            const baseBranch = '${{ steps.pr_info.outputs.base_branch }}';
+
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.payload.issue.number,
+              body: `❌ Failed to update branch with latest changes from \`${baseBranch}\`.\n\nThis usually means there are merge conflicts that need to be resolved manually.\n\nPlease update your branch locally:\n\`\`\`bash\ngit fetch origin ${baseBranch}\ngit merge origin/${baseBranch}\n# Resolve conflicts\ngit push\n\`\`\``
+            });
+
+            // Add -1 reaction to original comment
+            await github.rest.reactions.createForIssueComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              comment_id: context.payload.comment.id,
+              content: '-1'
+            });

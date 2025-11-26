@@ -1,0 +1,22 @@
+# Code owners for msgspec-ext
+#
+# These owners will be automatically requested for review
+# when someone opens a pull request.
+
+# Default owner for everything
+* @vilsonrodrigues
+
+# Documentation
+/docs/ @vilsonrodrigues
+*.md @vilsonrodrigues
+
+# CI/CD and automation
+/.github/ @vilsonrodrigues
+/scripts/ @vilsonrodrigues
+
+# Core SDK
+/src/msgspec_ext/sdk/ @vilsonrodrigues
+/src/msgspec_ext/core/ @vilsonrodrigues
+
+# Tests
+/tests/ @vilsonrodrigues

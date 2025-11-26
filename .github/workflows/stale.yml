@@ -1,0 +1,74 @@
+name: Stale Issues and PRs
+
+on:
+  schedule:
+    # Run daily at midnight UTC
+    - cron: "0 0 * * *"
+  workflow_dispatch:
+
+permissions:
+  issues: write
+  pull-requests: write
+
+jobs:
+  stale:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Mark/Close Stale Issues and PRs
+        uses: actions/stale@v9
+        with:
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
+
+          # Issues configuration
+          stale-issue-message: |
+            👋 This issue has been automatically marked as stale because it has not had recent activity.
+
+            It will be closed in 7 days if no further activity occurs.
+
+            If this issue is still relevant, please:
+            - Add a comment to keep it open
+            - Add the `keep-open` label
+
+            Thank you for your contributions! 🙏
+
+          close-issue-message: |
+            🔒 This issue has been automatically closed due to inactivity.
+
+            If you believe this issue is still relevant, feel free to reopen it or create a new issue with updated information.
+
+          days-before-issue-stale: 60
+          days-before-issue-close: 7
+          stale-issue-label: "stale"
+          exempt-issue-labels: "keep-open,bug,security,enhancement,help-wanted"
+
+          # Pull requests configuration
+          stale-pr-message: |
+            👋 This pull request has been automatically marked as stale because it has not had recent activity.
+
+            It will be closed in 14 days if no further activity occurs.
+
+            To keep this PR active, please:
+            - Rebase/update the branch
+            - Add a comment with updates
+            - Add the `keep-open` label
+
+            Thank you for your contribution! 🙏
+
+          close-pr-message: |
+            🔒 This pull request has been automatically closed due to inactivity.
+
+            If you'd like to continue this work, feel free to reopen or create a new PR.
+
+          days-before-pr-stale: 30
+          days-before-pr-close: 14
+          stale-pr-label: "stale"
+          exempt-pr-labels: "keep-open,in-progress,work-in-progress,dependencies"
+
+          # Operations per run
+          operations-per-run: 100
+
+          # Remove stale label when updated
+          remove-stale-when-updated: true
+
+          # Enable debug output
+          debug-only: false
