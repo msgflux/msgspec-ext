@@ -2,7 +2,7 @@
 
 import os
 from pathlib import Path
-from typing import Any, get_args, get_origin
+from typing import Any, Union, get_args, get_origin
 
 import msgspec
 from dotenv import load_dotenv
@@ -51,6 +51,10 @@ class BaseSettings:
     # Cache for dynamically created Struct classes
     _struct_class_cache: dict[type, type] = {}
 
+    # Cache for JSON encoders and decoders (performance optimization)
+    _encoder_cache: dict[type, msgspec.json.Encoder] = {}
+    _decoder_cache: dict[type, msgspec.json.Decoder] = {}
+
     def __new__(cls, **kwargs):
         """
         Create a msgspec.Struct instance from environment variables or kwargs.
@@ -87,9 +91,11 @@ class BaseSettings:
         - Fields from annotations
         - Default values from class attributes
         - Injected helper methods (model_dump, model_dump_json, schema)
+        - Automatic field ordering (required before optional)
         """
         # Extract fields from annotations (skip model_config)
-        fields = []
+        required_fields = []
+        optional_fields = []
 
         for field_name, field_type in cls.__annotations__.items():
             if field_name == "model_config":
@@ -98,11 +104,15 @@ class BaseSettings:
             # Get default value from class attribute if exists
             if hasattr(cls, field_name):
                 default_value = getattr(cls, field_name)
-                # Field with default: (name, type, default)
-                fields.append((field_name, field_type, default_value))
+                # Field with default: (name, type, default) - goes to optional
+                optional_fields.append((field_name, field_type, default_value))
             else:
-                # Required field: (name, type)
-                fields.append((field_name, field_type))
+                # Required field: (name, type) - goes to required
+                required_fields.append((field_name, field_type))
+
+        # IMPORTANT: Required fields must come before optional fields
+        # This avoids "Required field cannot follow optional fields" error
+        fields = required_fields + optional_fields
 
         # Create Struct dynamically using defstruct
         struct_cls = msgspec.defstruct(
@@ -170,14 +180,29 @@ class BaseSettings:
     @classmethod
     def _decode_from_dict(cls, struct_cls, values: dict[str, Any]):
         """
-        Decode dict to Struct using JSON encoding/decoding.
+        Decode dict to Struct using JSON encoding/decoding with cached encoder/decoder.
 
-        This is the key performance optimization: msgspec.json.decode
-        validates and converts all fields in one C-level operation.
+        This is the key performance optimization:
+        1. Reuses cached encoder/decoder instances (faster than creating new ones)
+        2. msgspec.json.decode validates and converts all fields in one C-level operation
         """
         try:
-            json_bytes = msgspec.json.encode(values)
-            return msgspec.json.decode(json_bytes, type=struct_cls)
+            # Get or create cached encoder
+            encoder = cls._encoder_cache.get(struct_cls)
+            if encoder is None:
+                encoder = msgspec.json.Encoder()
+                cls._encoder_cache[struct_cls] = encoder
+
+            # Get or create cached decoder
+            decoder = cls._decoder_cache.get(struct_cls)
+            if decoder is None:
+                decoder = msgspec.json.Decoder(type=struct_cls)
+                cls._decoder_cache[struct_cls] = decoder
+
+            # Encode and decode in one shot
+            json_bytes = encoder.encode(values)
+            return decoder.decode(json_bytes)
+
         except msgspec.ValidationError as e:
             # Re-raise with more context
             raise ValueError(f"Validation error: {e}") from e
@@ -249,12 +274,16 @@ class BaseSettings:
             "123" -> 123 (for int fields)
             "[1,2,3]" -> [1,2,3] (for list fields)
         """
-        # Unwrap Optional types
+        # Unwrap Optional/Union types to get the actual type
+        # Example: Optional[int] → Union[int, NoneType] → int
         origin = get_origin(field_type)
-        if origin is type(None) or origin is type(int | None):  # Union type
+        if origin is Union:
             args = get_args(field_type)
-            # Get the non-None type
-            field_type = next((arg for arg in args if arg is not type(None)), str)
+            # Filter out NoneType to get the actual type
+            non_none_types = [arg for arg in args if arg is not type(None)]
+            if len(non_none_types) == 1:
+                field_type = non_none_types[0]
+            # If multiple non-None types, keep original (will be handled as string)
 
         # Handle bool
         if field_type is bool:
@@ -264,15 +293,15 @@ class BaseSettings:
         if field_type is int:
             try:
                 return int(env_value)
-            except ValueError:
-                raise ValueError(f"Cannot convert '{env_value}' to int")
+            except ValueError as e:
+                raise ValueError(f"Cannot convert '{env_value}' to int") from e
 
         # Handle float
         if field_type is float:
             try:
                 return float(env_value)
-            except ValueError:
-                raise ValueError(f"Cannot convert '{env_value}' to float")
+            except ValueError as e:
+                raise ValueError(f"Cannot convert '{env_value}' to float") from e
 
         # Handle JSON types (list, dict, nested structs)
         if env_value.startswith(("{", "[")):
