@@ -1,6 +1,5 @@
 """Optimized settings management using msgspec.Struct and bulk JSON decoding."""
 
-import json
 import os
 from pathlib import Path
 from typing import Any, get_args, get_origin
