@@ -6,15 +6,7 @@
   style="width: 100%; height: auto;"
 >
   <g transform="translate(5 90) rotate(0 74.5 22)">
-    <text x="-18" y="28" font-family="sans" font-size="24" fill="#000000" text-anchor="start" style="white-space: pre;" direction="ltr">
-      msgspec
-    </text>
-  </g>
-
-  <g transform="translate(21 108) rotate(0 30 22)">
-    <text x="0" y="35" font-family="sans" font-size="24" fill="#a67c00" text-anchor="start" style="white-space: pre;" direction="ltr">
-      ext
-    </text>
+    <text x="-18" y="28" font-family="sans-serif" font-size="24" fill="#a67c00" text-anchor="start" style="white-space: pre;" direction="ltr">msgspec-ext</text>
   </g>
 
   <g stroke-linecap="round">
