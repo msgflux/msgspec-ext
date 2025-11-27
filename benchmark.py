@@ -1,10 +1,8 @@
 #!/usr/bin/env python3
-"""Benchmark comparing msgspec-ext, pydantic-settings, and dynaconf."""
+"""Benchmark comparing msgspec-ext and pydantic-settings."""
 
 import os
-import tempfile
 import time
-from pathlib import Path
 
 
 # Test with msgspec-ext
@@ -110,47 +108,6 @@ DATABASE__DATABASE=production
             os.unlink(".env.benchmark")
 
 
-def benchmark_dynaconf(iterations: int = 1000) -> float:
-    """Benchmark dynaconf settings loading."""
-    from dynaconf import Dynaconf
-
-    # Create settings files
-    with tempfile.TemporaryDirectory() as tmpdir:
-        settings_file = Path(tmpdir) / "settings.toml"
-        settings_file.write_text("""
-[default]
-app_name = "benchmark-app"
-debug = true
-api_key = "test-api-key-12345"
-max_connections = 200
-timeout = 60.0
-allowed_hosts = ["localhost", "127.0.0.1"]
-
-[default.database]
-host = "db.example.com"
-port = 5433
-username = "dbuser"
-password = "dbpass123"
-database = "production"
-""")
-
-        # Warm up
-        for _ in range(10):
-            settings = Dynaconf(
-                settings_files=[str(settings_file)],
-                environments=True,
-            )
-
-        # Actual benchmark
-        start = time.perf_counter()
-        for _ in range(iterations):
-            settings = Dynaconf(
-                settings_files=[str(settings_file)],
-                environments=True,
-            )
-        end = time.perf_counter()
-
-        return (end - start) / iterations * 1000  # ms per iteration
 
 
 def main():
@@ -179,14 +136,6 @@ def main():
         print(f"ERROR: {e}")
         pydantic_time = None
 
-    try:
-        print("⏱  dynaconf...", end=" ", flush=True)
-        dynaconf_time = benchmark_dynaconf()
-        print(f"{dynaconf_time:.3f}ms")
-    except Exception as e:
-        print(f"ERROR: {e}")
-        dynaconf_time = None
-
     print()
     print("=" * 70)
     print("Results Summary")
@@ -197,18 +146,12 @@ def main():
         print(f"msgspec-ext:        {msgspec_time:.3f}ms per load")
     if pydantic_time:
         print(f"pydantic-settings:  {pydantic_time:.3f}ms per load")
-    if dynaconf_time:
-        print(f"dynaconf:           {dynaconf_time:.3f}ms per load")
 
     print()
 
     if msgspec_time and pydantic_time:
         speedup = pydantic_time / msgspec_time
         print(f"msgspec-ext is {speedup:.1f}x faster than pydantic-settings")
-
-    if msgspec_time and dynaconf_time:
-        speedup = dynaconf_time / msgspec_time
-        print(f"msgspec-ext is {speedup:.1f}x faster than dynaconf")
 
     print()
     print("=" * 70)
@@ -224,9 +167,6 @@ def main():
     if pydantic_time:
         rel = pydantic_time / msgspec_time if msgspec_time else 1.0
         print(f"| pydantic-settings | {pydantic_time:.3f}ms | {rel:.1f}x slower |")
-    if dynaconf_time:
-        rel = dynaconf_time / msgspec_time if msgspec_time else 1.0
-        print(f"| dynaconf | {dynaconf_time:.3f}ms | {rel:.1f}x slower |")
     print()
 
 
