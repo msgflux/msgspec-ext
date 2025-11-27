@@ -1,6 +1,6 @@
 <svg version="1.1" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 170 140.4330930481983" width="480" height="280.8661860963966">
   <!-- svg-source:excalidraw -->
-  <!-- Modified from msgspec logo to add "-ext" - Dark version -->
+  <!-- Modified from msgspec logo to add "-ext" -->
 
   <defs>
     <style>
@@ -14,8 +14,8 @@
       }
     </style>
   </defs>
-  <g transform="translate(-10 86.43309304819829) rotate(0 74.5 22)"><text x="0" y="35" font-family="Cascadia, Segoe UI Emoji" font-size="36px" fill="#FFFFFF" text-anchor="start" style="white-space: pre;" direction="ltr">msgspec</text></g>
-  <g transform="translate(115 86.43309304819829) rotate(0 30 22)"><text x="0" y="35" font-family="Cascadia, Segoe UI Emoji" font-size="36px" fill="#a67c00" text-anchor="start" style="white-space: pre;" direction="ltr">-ext</text></g>
+  <g><text x="-10" y="125" font-family="Cascadia, Segoe UI Emoji" font-size="28" fill="#FFFFFF" text-anchor="start" style="white-space: pre;" direction="ltr">msgspec</text></g>
+  <g><text x="105" y="125" font-family="Cascadia, Segoe UI Emoji" font-size="28" fill="#a67c00" text-anchor="start" style="white-space: pre;" direction="ltr">-ext</text></g>
   <g stroke-linecap="round"><g transform="translate(32.39783599432508 94.01908499861165) rotate(0.029772013701078855 48.215665098675686 -41.11647360769149)"><path d="M-1.22 -1.5 C15.89 -27.58, 33.84 -55.74, 50.05 -83.95 M-0.36 0.37 C13.32 -22.25, 25.83 -42.75, 51.23 -83.33 M53.33 -83.11 C67.65 -52.07, 86.66 -20.49, 97.65 -1.24 M52.4 -84.02 C67.73 -54.99, 82.17 -26.19, 95.04 -0.45 M95.98 -0.52 C67.35 0.06, 38.22 -0.14, -1.11 1.79 M96.42 -1.71 C66.83 1.14, 39.67 -0.2, 0.43 0.59" stroke="#a67c00" stroke-width="2" fill="none"></path></g></g>
   <g stroke-linecap="round"><g transform="translate(18.219822008405913 70.7359699156257) rotate(0 18.679500247428393 -7.904308335528441)"><path d="M0 0 C11.92 -5.04, 23.83 -10.09, 37.36 -15.81 M0 0 C12.98 -5.49, 25.96 -10.98, 37.36 -15.81" stroke="#FFFFFF" stroke-width="1" fill="none"></path></g></g>
   <g stroke-linecap="round"><g transform="translate(57.323053305918165 55.104453012117375) rotate(0 46.15394434741563 5.6181226555405885)"><path d="M0 0 C10.46 -0.06, 20.91 -0.12, 51.2 -0.28 M0 0 C17.98 -0.1, 35.95 -0.2, 51.2 -0.28 M51.2 -0.28 C67.37 4.36, 83.54 9, 92.31 11.52 M51.2 -0.28 C62.09 2.84, 72.97 5.97, 92.31 11.52" stroke="#FFFFFF" stroke-width="1" fill="none"></path></g></g>

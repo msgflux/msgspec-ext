@@ -403,6 +403,7 @@ jobs:
         if: steps.check_perms.outputs.has_permission == 'true'
         uses: actions/checkout@v4
         with:
+          repository: ${{ steps.pr_info.outputs.head_repo }}
           ref: ${{ steps.pr_info.outputs.head_branch }}
           fetch-depth: 0
           token: ${{ secrets.GITHUB_TOKEN }}
