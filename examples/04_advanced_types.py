@@ -59,7 +59,9 @@ def main():
 
     # Example 3: Loading dicts from JSON env vars
     print("3. Loading dicts from environment:")
-    os.environ["FEATURE_FLAGS"] = '{"new_ui": true, "beta_features": false, "max_upload_mb": 100}'
+    os.environ["FEATURE_FLAGS"] = (
+        '{"new_ui": true, "beta_features": false, "max_upload_mb": 100}'
+    )
 
     settings3 = AdvancedSettings()
     print(f"   Feature Flags: {settings3.feature_flags}")

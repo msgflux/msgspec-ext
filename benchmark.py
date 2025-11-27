@@ -108,8 +108,6 @@ DATABASE__DATABASE=production
             os.unlink(".env.benchmark")
 
 
-
-
 def main():
     """Run benchmarks and display results."""
     print("=" * 70)

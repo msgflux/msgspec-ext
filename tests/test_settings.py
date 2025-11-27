@@ -142,9 +142,9 @@ def test_settings_bool_conversion_variants():
                 bool_val: bool
 
             settings = BoolSettings()
-            assert (
-                settings.bool_val is expected
-            ), f"Failed for env_value='{env_value}', expected={expected}"
+            assert settings.bool_val is expected, (
+                f"Failed for env_value='{env_value}', expected={expected}"
+            )
         finally:
             os.environ.pop("BOOL_VAL", None)
 
