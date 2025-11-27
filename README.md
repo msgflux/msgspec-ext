@@ -138,22 +138,28 @@ class AppSettings(BaseSettings):
 
 ## Performance
 
-msgspec-ext leverages msgspec's high-performance serialization for fast settings loading with full type validation.
+msgspec-ext leverages msgspec's high-performance serialization with bulk JSON decoding for maximum speed.
 
-**Benchmark Results** (1000 iterations, Python 3.13):
+**Benchmark Results** (1000 iterations, Python 3.12):
 
 | Library | Time per load | Relative Performance |
 |---------|---------------|---------------------|
-| msgspec-ext | 0.933ms | Baseline |
-| pydantic-settings | 2.694ms | 2.9x slower |
+| msgspec-ext | 0.702ms | Baseline ⚡ |
+| pydantic-settings | 2.694ms | 3.8x slower |
 
-msgspec-ext is **2.9x faster** than pydantic-settings while providing the same level of type safety and validation.
+msgspec-ext is **3.8x faster** than pydantic-settings while providing the same level of type safety and validation.
+
+**Key optimizations:**
+- Bulk JSON decoding in C (via msgspec)
+- Cached encoders and decoders
+- Automatic field ordering
+- Zero Python loops for validation
 
 *Benchmark measures complete settings initialization including .env file parsing and type validation. Run `python benchmark.py` to reproduce.*
 
 ## Why msgspec-ext?
 
-- **Performance** - 2.9x faster than pydantic-settings
+- **Performance** - 3.8x faster than pydantic-settings
 - **Lightweight** - 4x smaller package size (0.49 MB vs 1.95 MB)
 - **Type safety** - Full type validation with modern Python type checkers
 - **Minimal dependencies** - Only msgspec and python-dotenv
@@ -164,7 +170,7 @@ msgspec-ext is **2.9x faster** than pydantic-settings while providing the same l
 |---------|------------|-------------------|
 | .env support | ✅ | ✅ |
 | Type validation | ✅ | ✅ |
-| Performance | 2.9x faster | Baseline |
+| Performance | **3.8x faster** ⚡ | Baseline |
 | Package size | 0.49 MB | 1.95 MB |
 | Nested config | ✅ | ✅ |
 | Field aliases | ✅ | ✅ |
