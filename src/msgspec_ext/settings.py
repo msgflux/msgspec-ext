@@ -2,7 +2,7 @@
 
 import os
 from pathlib import Path
-from typing import Any, Union, get_args, get_origin
+from typing import Any, ClassVar, Union, get_args, get_origin
 
 import msgspec
 from dotenv import load_dotenv
@@ -21,8 +21,7 @@ class SettingsConfigDict(msgspec.Struct):
 
 
 class BaseSettings:
-    """
-    Base class for settings loaded from environment variables.
+    """Base class for settings loaded from environment variables.
 
     This class acts as a wrapper factory that creates optimized msgspec.Struct
     instances. It uses bulk JSON decoding for maximum performance.
@@ -49,15 +48,14 @@ class BaseSettings:
     model_config: SettingsConfigDict = SettingsConfigDict()
 
     # Cache for dynamically created Struct classes
-    _struct_class_cache: dict[type, type] = {}
+    _struct_class_cache: ClassVar[dict[type, type]] = {}
 
     # Cache for JSON encoders and decoders (performance optimization)
-    _encoder_cache: dict[type, msgspec.json.Encoder] = {}
-    _decoder_cache: dict[type, msgspec.json.Decoder] = {}
+    _encoder_cache: ClassVar[dict[type, msgspec.json.Encoder]] = {}
+    _decoder_cache: ClassVar[dict[type, msgspec.json.Decoder]] = {}
 
     def __new__(cls, **kwargs):
-        """
-        Create a msgspec.Struct instance from environment variables or kwargs.
+        """Create a msgspec.Struct instance from environment variables or kwargs.
 
         Args:
             **kwargs: Explicit field values (override environment variables)
@@ -84,8 +82,7 @@ class BaseSettings:
 
     @classmethod
     def _create_struct_class(cls):
-        """
-        Create a msgspec.Struct class from BaseSettings definition.
+        """Create a msgspec.Struct class from BaseSettings definition.
 
         This dynamically creates a Struct with:
         - Fields from annotations
@@ -150,8 +147,7 @@ class BaseSettings:
 
     @classmethod
     def _create_from_env(cls, struct_cls):
-        """
-        Create Struct instance from environment variables.
+        """Create Struct instance from environment variables.
 
         This is the core optimization: loads all env vars at once,
         converts to JSON, then uses msgspec.json.decode for bulk validation.
@@ -162,8 +158,8 @@ class BaseSettings:
         # 2. Collect all environment values
         env_dict = cls._collect_env_values(struct_cls)
 
-        # 3. Add defaults for missing optional fields
-        env_dict = cls._apply_defaults(struct_cls, env_dict)
+        # 3. Add defaults for missing optional fields (handled by msgspec)
+        # No-op for now, msgspec.defstruct handles defaults automatically
 
         # 4. Bulk decode with validation (ALL IN C!)
         return cls._decode_from_dict(struct_cls, env_dict)
@@ -171,16 +167,12 @@ class BaseSettings:
     @classmethod
     def _create_from_dict(cls, struct_cls, values: dict[str, Any]):
         """Create Struct instance from explicit values dict."""
-        # Add defaults for missing optional fields
-        values = cls._apply_defaults(struct_cls, values)
-
-        # Bulk decode with validation
+        # Bulk decode with validation (defaults handled by msgspec)
         return cls._decode_from_dict(struct_cls, values)
 
     @classmethod
     def _decode_from_dict(cls, struct_cls, values: dict[str, Any]):
-        """
-        Decode dict to Struct using JSON encoding/decoding with cached encoder/decoder.
+        """Decode dict to Struct using JSON encoding/decoding with cached encoder/decoder.
 
         This is the key performance optimization:
         1. Reuses cached encoder/decoder instances (faster than creating new ones)
@@ -222,8 +214,7 @@ class BaseSettings:
 
     @classmethod
     def _collect_env_values(cls, struct_cls) -> dict[str, Any]:
-        """
-        Collect environment variable values for all fields.
+        """Collect environment variable values for all fields.
 
         Returns dict with field_name -> converted_value.
         """
@@ -244,8 +235,7 @@ class BaseSettings:
 
     @classmethod
     def _get_env_name(cls, field_name: str) -> str:
-        """
-        Convert Python field name to environment variable name.
+        """Convert Python field name to environment variable name.
 
         Examples:
             field_name="app_name", prefix="", case_sensitive=False -> "APP_NAME"
@@ -263,8 +253,7 @@ class BaseSettings:
 
     @classmethod
     def _preprocess_env_value(cls, env_value: str, field_type: type) -> Any:
-        """
-        Convert environment variable string to JSON-compatible type.
+        """Convert environment variable string to JSON-compatible type.
 
         This handles the fact that env vars are always strings, but we need
         proper types for JSON encoding.
@@ -312,19 +301,3 @@ class BaseSettings:
 
         # Default: return as string
         return env_value
-
-    @classmethod
-    def _apply_defaults(cls, struct_cls, values: dict[str, Any]) -> dict[str, Any]:
-        """
-        Apply default values for missing optional fields.
-
-        This ensures all fields have values before JSON encoding.
-        """
-        # msgspec.defstruct already handles defaults in __init__,
-        # but we need them in our dict before JSON encoding
-
-        # Get struct's default values from __dataclass_fields__ equivalent
-        # For now, we'll let msgspec handle this during decode
-        # If a field is missing and has no default, msgspec will raise ValidationError
-
-        return values
