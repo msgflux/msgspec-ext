@@ -7,7 +7,7 @@
 </p>
 
 <p align="center">
-  <b>Fast settings management using <a href="https://github.com/jcrist/msgspec">msgspec</a></b> - a high-performance serialization library
+  <b>Fast settings management using <a href="https://github.com/jcrist/msgspec">msgspec</a></b> - a high-performance validation and serialization library
 </p>
 
 <p align="center">
