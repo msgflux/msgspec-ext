@@ -5,7 +5,7 @@ build-backend = "hatchling.build"
 [project]
 name = "msgspec-ext"
 dynamic = ["version"]
-description = "Settings management using msgspec"
+description = "Fast settings management using msgspec"
 readme = "README.md"
 license = "MIT"
 authors = [
