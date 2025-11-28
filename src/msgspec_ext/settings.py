@@ -349,30 +349,12 @@ class BaseSettings:
 
         return env_value
 
-        # Handle bool
+        # Type conversion (required for JSON encoding)
         if field_type is bool:
             return env_value.lower() in ("true", "1", "yes", "y", "t")
-
-        # Handle int
         if field_type is int:
-            try:
-                return int(env_value)
-            except ValueError as e:
-                raise ValueError(f"Cannot convert '{env_value}' to int") from e
-
-        # Handle float
+            return int(env_value)
         if field_type is float:
-            try:
-                return float(env_value)
-            except ValueError as e:
-                raise ValueError(f"Cannot convert '{env_value}' to float") from e
+            return float(env_value)
 
-        # Handle JSON types (list, dict, nested structs)
-        if env_value.startswith(("{", "[")):
-            try:
-                return msgspec.json.decode(env_value.encode())
-            except msgspec.DecodeError as e:
-                raise ValueError(f"Invalid JSON in env var: {e}") from e
-
-        # Default: return as string
         return env_value
