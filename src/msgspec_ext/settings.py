@@ -54,6 +54,9 @@ class BaseSettings:
     _encoder_cache: ClassVar[dict[type, msgspec.json.Encoder]] = {}
     _decoder_cache: ClassVar[dict[type, msgspec.json.Decoder]] = {}
 
+    # Cache for loaded .env files (massive performance boost)
+    _loaded_env_files: ClassVar[set[str]] = set()
+
     def __new__(cls, **kwargs):
         """Create a msgspec.Struct instance from environment variables or kwargs.
 
@@ -204,13 +207,24 @@ class BaseSettings:
 
     @classmethod
     def _load_env_files(cls):
-        """Load environment variables from .env file if specified."""
+        """Load environment variables from .env file if specified.
+
+        Uses caching to avoid re-parsing the same .env file multiple times.
+        This provides massive performance gains for repeated instantiations.
+        """
         if cls.model_config.env_file:
             env_path = Path(cls.model_config.env_file)
-            if env_path.exists():
-                load_dotenv(
-                    dotenv_path=env_path, encoding=cls.model_config.env_file_encoding
-                )
+            # Cache key: absolute path to ensure uniqueness
+            cache_key = str(env_path.absolute())
+
+            # Only load if not already cached
+            if cache_key not in cls._loaded_env_files:
+                if env_path.exists():
+                    load_dotenv(
+                        dotenv_path=env_path,
+                        encoding=cls.model_config.env_file_encoding,
+                    )
+                    cls._loaded_env_files.add(cache_key)
 
     @classmethod
     def _collect_env_values(cls, struct_cls) -> dict[str, Any]:
@@ -253,51 +267,31 @@ class BaseSettings:
 
     @classmethod
     def _preprocess_env_value(cls, env_value: str, field_type: type) -> Any:
-        """Convert environment variable string to JSON-compatible type.
+        """Convert env string to proper type for JSON encoding.
 
-        This handles the fact that env vars are always strings, but we need
-        proper types for JSON encoding.
-
-        Examples:
-            "true" -> True (for bool fields)
-            "123" -> 123 (for int fields)
-            "[1,2,3]" -> [1,2,3] (for list fields)
+        Optimized to minimize type introspection overhead.
         """
-        # Unwrap Optional/Union types to get the actual type
-        # Example: Optional[int] → Union[int, NoneType] → int
-        origin = get_origin(field_type)
-        if origin is Union:
-            args = get_args(field_type)
-            # Filter out NoneType to get the actual type
-            non_none_types = [arg for arg in args if arg is not type(None)]
-            if len(non_none_types) == 1:
-                field_type = non_none_types[0]
-            # If multiple non-None types, keep original (will be handled as string)
-
-        # Handle bool
-        if field_type is bool:
-            return env_value.lower() in ("true", "1", "yes", "y", "t")
-
-        # Handle int
-        if field_type is int:
-            try:
-                return int(env_value)
-            except ValueError as e:
-                raise ValueError(f"Cannot convert '{env_value}' to int") from e
-
-        # Handle float
-        if field_type is float:
-            try:
-                return float(env_value)
-            except ValueError as e:
-                raise ValueError(f"Cannot convert '{env_value}' to float") from e
-
-        # Handle JSON types (list, dict, nested structs)
-        if env_value.startswith(("{", "[")):
+        # Fast path: JSON structures (most complex case first)
+        if env_value and env_value[0] in "{[":
             try:
                 return msgspec.json.decode(env_value.encode())
             except msgspec.DecodeError as e:
                 raise ValueError(f"Invalid JSON in env var: {e}") from e
 
-        # Default: return as string
+        # Unwrap Optional/Union - only when needed
+        origin = get_origin(field_type)
+        if origin is Union:
+            args = get_args(field_type)
+            non_none = [a for a in args if a is not type(None)]
+            if non_none:
+                field_type = non_none[0]
+
+        # Type conversion (required for JSON encoding)
+        if field_type is bool:
+            return env_value.lower() in ("true", "1", "yes", "y", "t")
+        if field_type is int:
+            return int(env_value)
+        if field_type is float:
+            return float(env_value)
+
         return env_value

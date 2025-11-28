@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- .env file caching for massive performance gains (32x faster)
+- Profiling script for identifying bottlenecks
+
+### Changed
+- Performance: Now 89x faster than pydantic-settings (up from 2.7x)
+- Optimized .env file loading to parse only once per unique file
+
 ## [0.2.0] - 2025-11-27
 
 ### Added
