@@ -54,6 +54,18 @@ class BaseSettings:
     _encoder_cache: ClassVar[dict[type, msgspec.json.Encoder]] = {}
     _decoder_cache: ClassVar[dict[type, msgspec.json.Decoder]] = {}
 
+    # Cache for loaded .env files (massive performance boost)
+    _loaded_env_files: ClassVar[set[str]] = set()
+
+    # Cache for field name to env name mapping
+    _field_env_mapping_cache: ClassVar[dict[type, dict[str, str]]] = {}
+
+    # Cache for absolute paths to avoid repeated pathlib operations
+    _absolute_path_cache: ClassVar[dict[str, str]] = {}
+
+    # Cache for type introspection results (avoid repeated get_origin/get_args calls)
+    _type_cache: ClassVar[dict[type, type]] = {}
+
     def __new__(cls, **kwargs):
         """Create a msgspec.Struct instance from environment variables or kwargs.
 
@@ -179,17 +191,16 @@ class BaseSettings:
         2. msgspec.json.decode validates and converts all fields in one C-level operation
         """
         try:
-            # Get or create cached encoder
-            encoder = cls._encoder_cache.get(struct_cls)
-            if encoder is None:
+            # Get or create cached encoder/decoder pair atomically
+            encoder_decoder = cls._encoder_cache.get(struct_cls)
+            if encoder_decoder is None:
                 encoder = msgspec.json.Encoder()
-                cls._encoder_cache[struct_cls] = encoder
-
-            # Get or create cached decoder
-            decoder = cls._decoder_cache.get(struct_cls)
-            if decoder is None:
                 decoder = msgspec.json.Decoder(type=struct_cls)
-                cls._decoder_cache[struct_cls] = decoder
+                encoder_decoder = (encoder, decoder)
+                cls._encoder_cache[struct_cls] = encoder_decoder
+                cls._decoder_cache[struct_cls] = encoder_decoder
+            else:
+                encoder, decoder = encoder_decoder
 
             # Encode and decode in one shot
             json_bytes = encoder.encode(values)
@@ -204,31 +215,61 @@ class BaseSettings:
 
     @classmethod
     def _load_env_files(cls):
-        """Load environment variables from .env file if specified."""
+        """Load environment variables from .env file if specified.
+
+        Uses caching to avoid re-parsing the same .env file multiple times.
+        This provides massive performance gains for repeated instantiations.
+        """
         if cls.model_config.env_file:
-            env_path = Path(cls.model_config.env_file)
-            if env_path.exists():
-                load_dotenv(
-                    dotenv_path=env_path, encoding=cls.model_config.env_file_encoding
-                )
+            # Use cached absolute path to avoid repeated pathlib operations
+            cache_key = cls._absolute_path_cache.get(cls.model_config.env_file)
+            if cache_key is None:
+                env_path = Path(cls.model_config.env_file)
+                cache_key = str(env_path.absolute())
+                cls._absolute_path_cache[cls.model_config.env_file] = cache_key
+
+            # Only load if not already cached
+            if cache_key not in cls._loaded_env_files:
+                # Check existence only once per path
+                if Path(cls.model_config.env_file).exists():
+                    load_dotenv(
+                        dotenv_path=cls.model_config.env_file,
+                        encoding=cls.model_config.env_file_encoding,
+                    )
+                    cls._loaded_env_files.add(cache_key)
 
     @classmethod
     def _collect_env_values(cls, struct_cls) -> dict[str, Any]:
         """Collect environment variable values for all fields.
 
         Returns dict with field_name -> converted_value.
+        Highly optimized with cached field->env name mapping.
         """
         env_dict = {}
 
-        for field_name in struct_cls.__struct_fields__:
-            # Get environment variable name
-            env_name = cls._get_env_name(field_name)
-            env_value = os.environ.get(env_name)
+        # Get cached field->env name mapping or create it
+        field_mapping = cls._field_env_mapping_cache.get(cls)
+        if field_mapping is None:
+            field_mapping = {}
+            for field_name in struct_cls.__struct_fields__:
+                field_mapping[field_name] = cls._get_env_name(field_name)
+            cls._field_env_mapping_cache[cls] = field_mapping
+
+        # Cache struct fields and annotations as local variables for faster access
+        struct_fields = struct_cls.__struct_fields__
+        annotations = struct_cls.__annotations__
+        environ_get = os.environ.get  # Local reference for faster calls
+        preprocess_func = cls._preprocess_env_value  # Local reference
+
+        for field_name in struct_fields:
+            # Get cached environment variable name
+            env_name = field_mapping[field_name]
+            env_value = environ_get(env_name)
 
             if env_value is not None:
                 # Preprocess string value to proper type for JSON
-                field_type = struct_cls.__annotations__[field_name]
-                converted_value = cls._preprocess_env_value(env_value, field_type)
+                field_type = annotations[field_name]
+                converted_value = preprocess_func(env_value, field_type)
                 env_dict[field_name] = converted_value
 
         return env_dict
@@ -241,6 +282,10 @@ class BaseSettings:
             field_name="app_name", prefix="", case_sensitive=False -> "APP_NAME"
             field_name="port", prefix="MY_", case_sensitive=False -> "MY_PORT"
         """
+        # Fast path: no transformations needed
+        if cls.model_config.case_sensitive and not cls.model_config.env_prefix:
+            return field_name
+
         env_name = field_name
 
         if not cls.model_config.case_sensitive:
@@ -252,27 +297,57 @@ class BaseSettings:
         return env_name
 
     @classmethod
-    def _preprocess_env_value(cls, env_value: str, field_type: type) -> Any:
+    def _preprocess_env_value(cls, env_value: str, field_type: type) -> Any:  # noqa: C901, PLR0912
         """Convert environment variable string to JSON-compatible type.
 
-        This handles the fact that env vars are always strings, but we need
-        proper types for JSON encoding.
+        Ultra-optimized to minimize type introspection overhead with caching.
 
         Examples:
             "true" -> True (for bool fields)
             "123" -> 123 (for int fields)
             "[1,2,3]" -> [1,2,3] (for list fields)
         """
-        # Unwrap Optional/Union types to get the actual type
-        # Example: Optional[int] → Union[int, NoneType] → int
+        # Fast path: JSON structures (most complex case first)
+        if env_value and env_value[0] in "{[":
+            try:
+                return msgspec.json.decode(env_value.encode())
+            except msgspec.DecodeError as e:
+                raise ValueError(f"Invalid JSON in env var: {e}") from e
+
+        # Check type cache first
+        cached_type = cls._type_cache.get(field_type)
+        if cached_type is not None:
+            field_type = cached_type
+
+        # Fast path: Direct type comparison (avoid get_origin when possible)
+        if field_type is str:
+            return env_value
+        if field_type is bool:
+            return env_value.lower() in ("true", "1", "yes", "y", "t")
+        if field_type is int:
+            try:
+                return int(env_value)
+            except ValueError as e:
+                raise ValueError(f"Cannot convert '{env_value}' to int") from e
+        if field_type is float:
+            try:
+                return float(env_value)
+            except ValueError as e:
+                raise ValueError(f"Cannot convert '{env_value}' to float") from e
+
+        # Only use typing introspection for complex types (Union, Optional, etc.)
         origin = get_origin(field_type)
         if origin is Union:
             args = get_args(field_type)
-            # Filter out NoneType to get the actual type
-            non_none_types = [arg for arg in args if arg is not type(None)]
-            if len(non_none_types) == 1:
-                field_type = non_none_types[0]
-            # If multiple non-None types, keep original (will be handled as string)
+            non_none = [a for a in args if a is not type(None)]
+            if non_none:
+                # Cache the resolved type for future use
+                resolved_type = non_none[0]
+                cls._type_cache[field_type] = resolved_type
+                # Recursively process with the non-None type
+                return cls._preprocess_env_value(env_value, resolved_type)
+
+        return env_value
 
         # Handle bool
         if field_type is bool:
