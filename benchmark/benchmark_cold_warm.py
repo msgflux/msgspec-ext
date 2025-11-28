@@ -192,14 +192,14 @@ if __name__ == "__main__":
     print(f"{'Library':<20} {'Cold Start':<15} {'Warm (Cached)':<15} {'Speedup':<10}")
     print("-" * 70)
     print(
-        f"{'msgspec-ext':<20} {msgspec_cold:>8.3f}ms     {msgspec_warm:>8.3f}ms     {msgspec_cold/msgspec_warm:>6.1f}x"
+        f"{'msgspec-ext':<20} {msgspec_cold:>8.3f}ms     {msgspec_warm:>8.3f}ms     {msgspec_cold / msgspec_warm:>6.1f}x"
     )
     print(
-        f"{'pydantic-settings':<20} {pydantic_cold:>8.3f}ms     {pydantic_warm:>8.3f}ms     {pydantic_cold/pydantic_warm:>6.1f}x"
+        f"{'pydantic-settings':<20} {pydantic_cold:>8.3f}ms     {pydantic_warm:>8.3f}ms     {pydantic_cold / pydantic_warm:>6.1f}x"
     )
     print()
     print("-" * 70)
-    print(f"msgspec vs pydantic:")
+    print("msgspec vs pydantic:")
     print(f"  Cold:  {pydantic_cold / msgspec_cold:.1f}x faster")
     print(f"  Warm:  {pydantic_warm / msgspec_warm:.1f}x faster")
     print()
