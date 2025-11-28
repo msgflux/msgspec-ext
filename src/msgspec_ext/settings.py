@@ -54,6 +54,9 @@ class BaseSettings:
     _encoder_cache: ClassVar[dict[type, msgspec.json.Encoder]] = {}
     _decoder_cache: ClassVar[dict[type, msgspec.json.Decoder]] = {}
 
+    # Cache for loaded .env files (massive performance boost)
+    _loaded_env_files: ClassVar[set[str]] = set()
+
     def __new__(cls, **kwargs):
         """Create a msgspec.Struct instance from environment variables or kwargs.
 
@@ -204,13 +207,24 @@ class BaseSettings:
 
     @classmethod
     def _load_env_files(cls):
-        """Load environment variables from .env file if specified."""
+        """Load environment variables from .env file if specified.
+
+        Uses caching to avoid re-parsing the same .env file multiple times.
+        This provides massive performance gains for repeated instantiations.
+        """
         if cls.model_config.env_file:
             env_path = Path(cls.model_config.env_file)
-            if env_path.exists():
-                load_dotenv(
-                    dotenv_path=env_path, encoding=cls.model_config.env_file_encoding
-                )
+            # Cache key: absolute path to ensure uniqueness
+            cache_key = str(env_path.absolute())
+
+            # Only load if not already cached
+            if cache_key not in cls._loaded_env_files:
+                if env_path.exists():
+                    load_dotenv(
+                        dotenv_path=env_path,
+                        encoding=cls.model_config.env_file_encoding,
+                    )
+                    cls._loaded_env_files.add(cache_key)
 
     @classmethod
     def _collect_env_values(cls, struct_cls) -> dict[str, Any]:
