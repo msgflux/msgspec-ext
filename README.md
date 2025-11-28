@@ -146,25 +146,31 @@ msgspec-ext leverages msgspec's high-performance serialization with bulk JSON de
 
 | Library | Time per load | Relative Performance |
 |---------|---------------|---------------------|
-| msgspec-ext | 2.271ms | Baseline ⚡ |
-| pydantic-settings | 6.157ms | 2.7x slower |
+| msgspec-ext | 0.023ms | Baseline ⚡ |
+| pydantic-settings | 1.350ms | 58.7x slower |
 
-msgspec-ext is **2.7x faster** than pydantic-settings while providing the same level of type safety and validation.
+**Cold Start vs Warm Performance:**
+- Cold start: 1.489ms (1.3x faster than pydantic-settings)
+- Warm cached: 0.011ms (117.5x faster than pydantic-settings)
+- Internal speedup: 129.6x faster when cached
 
-**Key optimizations:**
-- Bulk JSON decoding in C (via msgspec)
-- Cached encoders and decoders
-- Automatic field ordering
-- Zero Python loops for validation
+msgspec-ext is **ultra-optimized** with advanced caching strategies:
+- Field name to env name mapping cache
+- Absolute path cache for file operations
+- Type introspection cache for complex types
+- Atomic encoder/decoder cache pairs
+- Fast paths for primitive types (str, bool, int, float)
+- Local variable caching in hot loops
 
-*Benchmark measures complete settings initialization with complex configuration (app settings, database, redis, feature flags) including .env file parsing and type validation. Run `./benchmark/run_benchmark.sh` to reproduce.*
+*Benchmark measures complete settings initialization with complex configuration (app settings, database, redis, feature flags) including .env file parsing and type validation. Run `./benchmark/benchmark.py` to reproduce.*
 
 ## Why msgspec-ext?
 
-- **Performance** - 2.7x faster than pydantic-settings
+- **Performance** - 117.5x faster than pydantic-settings when cached, 1.3x faster on cold start
 - **Lightweight** - 4x smaller package size (0.49 MB vs 1.95 MB)
 - **Type safety** - Full type validation with modern Python type checkers
 - **Minimal dependencies** - Only msgspec and python-dotenv
+- **Advanced caching** - Multiple optimization layers for maximum speed
 
 ## Comparison with Pydantic Settings
 
@@ -172,8 +178,10 @@ msgspec-ext is **2.7x faster** than pydantic-settings while providing the same l
 |---------|------------|-------------------|
 | .env support | ✅ | ✅ |
 | Type validation | ✅ | ✅ |
-| Performance | **2.7x faster** ⚡ | Baseline |
+| Performance (cold) | **1.3x faster** ⚡ | Baseline |
+| Performance (warm) | **117.5x faster** ⚡ | Baseline |
 | Package size | 0.49 MB | 1.95 MB |
+| Advanced caching | ✅ | ❌ |
 | Nested config | ✅ | ✅ |
 | Field aliases | ✅ | ✅ |
 | JSON Schema | ✅ | ✅ |
