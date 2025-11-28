@@ -142,14 +142,15 @@ class AppSettings(BaseSettings):
 
 msgspec-ext leverages msgspec's high-performance serialization with bulk JSON decoding for maximum speed.
 
-**Benchmark Results** (10 runs × 1000 iterations, Python 3.12):
+**Benchmark Results** (Python 3.12):
 
-| Library | Time per load | Relative Performance |
-|---------|---------------|---------------------|
-| msgspec-ext | 0.074ms | Baseline ⚡ |
-| pydantic-settings | 6.582ms | 89x slower |
+| Scenario | msgspec-ext | pydantic-settings | Advantage |
+|----------|-------------|-------------------|-----------|
+| Cold start (first load) | 1.709ms | 1.945ms | 1.1x faster |
+| Warm (cached) | 0.037ms | 1.501ms | **40.6x faster** ⚡ |
+| Average (1000 iterations) | 0.074ms | 6.582ms | **89x faster** |
 
-msgspec-ext is **89x faster** than pydantic-settings while providing the same level of type safety and validation.
+**Key insight**: pydantic-settings re-parses .env on every load, while msgspec-ext caches it. This provides 40x advantage on subsequent loads.
 
 **Key optimizations:**
 - **Cached .env file loading** - Parse once, reuse forever
