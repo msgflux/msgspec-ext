@@ -410,21 +410,25 @@ jobs:
               core.setOutput('is_fork', 'true');
 
               const baseBranch = pr.base.ref;
+              const forkMessage = [
+                'ℹ️ Update commands are not supported for PRs from forks.',
+                '',
+                'To update your branch, please run these commands locally:',
+                '',
+                '```bash',
+                `git fetch upstream ${baseBranch}`,
+                `git merge upstream/${baseBranch}`,
+                'git push',
+                '```',
+                '',
+                'Or create a new PR from the same repository.'
+              ].join('\n');
+
               await github.rest.issues.createComment({
                 owner: context.repo.owner,
                 repo: context.repo.repo,
                 issue_number: context.payload.issue.number,
-                body: `ℹ️ Update commands are not supported for PRs from forks.
-
-To update your branch, please run these commands locally:
-
-\`\`\`bash
-git fetch upstream ${baseBranch}
-git merge upstream/${baseBranch}
-git push
-\`\`\`
-
-Or create a new PR from the same repository.`
+                body: forkMessage
               });
 
               return;
@@ -600,13 +604,13 @@ Or create a new PR from the same repository.`
             const baseBranch = '${{ steps.pr_info.outputs.base_branch }}';
             const commitsBehind = '${{ steps.check_update.outputs.commits_behind }}';
 
+            const successMessage = `✅ Branch updated successfully by @${user}!\n\nMerged ${commitsBehind} commit(s) from \`${baseBranch}\`.`;
+
             await github.rest.issues.createComment({
               owner: context.repo.owner,
               repo: context.repo.repo,
               issue_number: context.payload.issue.number,
-              body: `✅ Branch updated successfully by @${user}!
-
-Merged ${commitsBehind} commit(s) from \`${baseBranch}\`.`
+              body: successMessage
             });
 
             // Add +1 reaction to original comment
@@ -624,21 +628,25 @@ Merged ${commitsBehind} commit(s) from \`${baseBranch}\`.`
           script: |
             const baseBranch = '${{ steps.pr_info.outputs.base_branch }}';
 
+            const failureMessage = [
+              `❌ Failed to update branch with latest changes from \`${baseBranch}\`.`,
+              '',
+              'This usually means there are merge conflicts that need to be resolved manually.',
+              '',
+              'Please update your branch locally:',
+              '```bash',
+              `git fetch origin ${baseBranch}`,
+              `git merge origin/${baseBranch}`,
+              '# Resolve conflicts',
+              'git push',
+              '```'
+            ].join('\n');
+
             await github.rest.issues.createComment({
               owner: context.repo.owner,
               repo: context.repo.repo,
               issue_number: context.payload.issue.number,
-              body: `❌ Failed to update branch with latest changes from \`${baseBranch}\`.
-
-This usually means there are merge conflicts that need to be resolved manually.
-
-Please update your branch locally:
-\`\`\`bash
-git fetch origin ${baseBranch}
-git merge origin/${baseBranch}
-# Resolve conflicts
-git push
-\`\`\``
+              body: failureMessage
             });
 
             // Add -1 reaction to original comment
