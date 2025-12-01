@@ -403,7 +403,32 @@ jobs:
 
             // Check if it's from the same repository
             const isSameRepo = pr.head.repo.full_name === pr.base.repo.full_name;
-            
+
+            // Early exit for fork PRs
+            if (!isSameRepo) {
+              core.info('❌ PR is from fork - update not supported');
+              core.setOutput('is_fork', 'true');
+
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.payload.issue.number,
+                body: `ℹ️ Update commands are not supported for PRs from forks.
+
+To update your branch, please run these commands locally:
+
+\`\`\`bash
+git fetch upstream ${pr.base.ref}
+git merge upstream/${pr.base.ref}
+git push
+\`\`\`
+
+Or create a new PR from the same repository.`
+              });
+
+              return;
+            }
+
             core.setOutput('base_branch', pr.base.ref);
             core.setOutput('head_branch', pr.head.ref);
             core.setOutput('head_repo', pr.head.repo.full_name);
@@ -411,7 +436,7 @@ jobs:
             core.setOutput('is_same_repo', isSameRepo.toString());
 
       - name: Validate branch exists
-        if: steps.check_perms.outputs.has_permission == 'true'
+        if: steps.check_perms.outputs.has_permission == 'true' && steps.pr_info.outputs.is_fork != 'true'
         id: validate_branch
         uses: actions/github-script@v8
         with:
@@ -471,14 +496,6 @@ jobs:
           script: |
             const baseBranch = '${{ steps.pr_info.outputs.base_branch }}';
             const headBranch = '${{ steps.pr_info.outputs.head_branch }}';
-            const isSameRepo = '${{ steps.pr_info.outputs.is_same_repo }}' === 'true';
-
-            if (!isSameRepo) {
-              core.info('PR is from fork - update not supported');
-              core.setOutput('update_needed', 'false');
-              core.setOutput('is_fork', 'true');
-              return;
-            }
 
             try {
               // Get latest commit from base branch
@@ -490,12 +507,12 @@ jobs:
 
               const baseSha = baseBranchData.commit.sha;
 
-              // Check if head branch is behind base
+              // Check if head branch is behind base (same-repo PRs only at this point)
               const { data: comparison } = await github.rest.repos.compareCommits({
                 owner: context.repo.owner,
                 repo: context.repo.repo,
                 base: baseSha,
-                head: `${context.repo.owner}/${context.repo.repo}:${headBranch}`
+                head: headBranch
               });
 
               const isBehind = comparison.behind_by > 0;
@@ -530,32 +547,11 @@ jobs:
               body: '✅ Branch is already up to date with the latest changes!'
             });
 
-      - name: Handle fork PR
-        if: steps.check_perms.outputs.has_permission == 'true' && steps.check_update.outputs.is_fork == 'true'
-        uses: actions/github-script@v8
-        with:
-          script: |
-            await github.rest.issues.createComment({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              issue_number: context.payload.issue.number,
-              body: 'ℹ️ Update commands are not supported for PRs from forks.
-
-To update your branch, please run these commands locally:
-
-```bash
-git fetch upstream main
-git merge upstream/main
-git push
-```
-
-Or create a new PR from the same repository.'
-            });
-
       - name: Checkout PR branch
         if: steps.check_perms.outputs.has_permission == 'true' && steps.check_update.outputs.update_needed == 'true' && steps.validate_branch.outputs.branch_exists == 'true'
         uses: actions/checkout@v4
         with:
+          repository: ${{ steps.pr_info.outputs.head_repo }}
           ref: ${{ steps.pr_info.outputs.head_branch }}
           fetch-depth: 0
           token: ${{ secrets.GITHUB_TOKEN }}
@@ -589,7 +585,9 @@ Or create a new PR from the same repository.'
         if: steps.update.outputs.merge_success == 'true'
         run: |
           HEAD_BRANCH="${{ steps.pr_info.outputs.head_branch }}"
-          echo "Pushing changes to $HEAD_BRANCH..."
+          HEAD_REPO="${{ steps.pr_info.outputs.head_repo }}"
+
+          echo "Pushing changes to $HEAD_BRANCH in $HEAD_REPO..."
           git push origin "$HEAD_BRANCH"
 
       - name: Comment success
