@@ -1,4 +1,7 @@
-"""Optimized settings management using msgspec.Struct and bulk JSON decoding."""
+"""Optimized settings management using msgspec.Struct and bulk JSON decoding.
+
+This module provides a high-performance alternative to pydantic-settings.
+"""
 
 import os
 from pathlib import Path
