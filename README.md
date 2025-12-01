@@ -142,7 +142,7 @@ class AppSettings(BaseSettings):
 
 msgspec-ext leverages msgspec's high-performance serialization with bulk JSON decoding for maximum speed.
 
-**Benchmark Results** (10 runs × 1000 iterations, Python 3.12):
+**Benchmark Results** (Python 3.12):
 
 | Library | Time per load | Relative Performance |
 |---------|---------------|---------------------|
