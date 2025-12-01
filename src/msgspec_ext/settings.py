@@ -349,6 +349,36 @@ class BaseSettings:
 
         return env_value
 
+        # Fast path: Direct type comparison (avoid get_origin when possible)
+        if field_type is str:
+            return env_value
+        if field_type is bool:
+            return env_value.lower() in ("true", "1", "yes", "y", "t")
+        if field_type is int:
+            try:
+                return int(env_value)
+            except ValueError as e:
+                raise ValueError(f"Cannot convert '{env_value}' to int") from e
+        if field_type is float:
+            try:
+                return float(env_value)
+            except ValueError as e:
+                raise ValueError(f"Cannot convert '{env_value}' to float") from e
+
+        # Only use typing introspection for complex types (Union, Optional, etc.)
+        origin = get_origin(field_type)
+        if origin is Union:
+            args = get_args(field_type)
+            non_none = [a for a in args if a is not type(None)]
+            if non_none:
+                # Cache the resolved type for future use
+                resolved_type = non_none[0]
+                cls._type_cache[field_type] = resolved_type
+                # Recursively process with the non-None type
+                return cls._preprocess_env_value(env_value, resolved_type)
+
+        return env_value
+
         # Type conversion (required for JSON encoding)
         if field_type is bool:
             return env_value.lower() in ("true", "1", "yes", "y", "t")
