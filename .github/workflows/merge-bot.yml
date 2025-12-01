@@ -409,6 +409,7 @@ jobs:
               core.info('❌ PR is from fork - update not supported');
               core.setOutput('is_fork', 'true');
 
+              const baseBranch = pr.base.ref;
               await github.rest.issues.createComment({
                 owner: context.repo.owner,
                 repo: context.repo.repo,
@@ -418,8 +419,8 @@ jobs:
 To update your branch, please run these commands locally:
 
 \`\`\`bash
-git fetch upstream ${pr.base.ref}
-git merge upstream/${pr.base.ref}
+git fetch upstream ${baseBranch}
+git merge upstream/${baseBranch}
 git push
 \`\`\`
 
