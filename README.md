@@ -138,55 +138,55 @@ class AppSettings(BaseSettings):
     AppName: str  # Exact match required
 ```
 
-## Performance
+## Why Choose msgspec-ext?
 
-msgspec-ext leverages msgspec's high-performance serialization with bulk JSON decoding for maximum speed.
+msgspec-ext provides a **faster, lighter alternative** to pydantic-settings while maintaining a familiar API and full type safety.
 
-**Benchmark Results** (Python 3.12):
+### Performance Comparison
 
-| Library | Time per load | Relative Performance |
-|---------|---------------|---------------------|
-| msgspec-ext | 0.023ms | Baseline ⚡ |
-| pydantic-settings | 1.350ms | 58.7x slower |
+**First-time load** (what you'll see when testing):
 
-**Cold Start vs Warm Performance:**
-- Cold start: 1.489ms (1.3x faster than pydantic-settings)
-- Warm cached: 0.011ms (117.5x faster than pydantic-settings)
-- Internal speedup: 129.6x faster when cached
+| Library | Time per load | Speed |
+|---------|---------------|-------|
+| **msgspec-ext** | **1.818ms** | **1.5x faster** ⚡ |
+| pydantic-settings | 2.814ms | Baseline |
 
-msgspec-ext is **ultra-optimized** with advanced caching strategies:
-- Field name to env name mapping cache
-- Absolute path cache for file operations
-- Type introspection cache for complex types
-- Atomic encoder/decoder cache pairs
-- Fast paths for primitive types (str, bool, int, float)
-- Local variable caching in hot loops
+**With caching** (repeated loads in long-running applications):
 
-*Benchmark measures complete settings initialization with complex configuration (app settings, database, redis, feature flags) including .env file parsing and type validation. Run `./benchmark/benchmark.py` to reproduce.*
+| Library | Time per load | Speed |
+|---------|---------------|-------|
+| **msgspec-ext** | **0.016ms** | **112x faster** ⚡ |
+| pydantic-settings | 1.818ms | Baseline |
 
-## Why msgspec-ext?
+> *Benchmark includes .env file parsing, environment variable loading, type validation, and nested configuration (app settings, database, redis, feature flags). Run `benchmark/benchmark_cold_warm.py` to reproduce.*
 
-- **Performance** - 117.5x faster than pydantic-settings when cached, 1.3x faster on cold start
-- **Lightweight** - 4x smaller package size (0.49 MB vs 1.95 MB)
-- **Type safety** - Full type validation with modern Python type checkers
-- **Minimal dependencies** - Only msgspec and python-dotenv
-- **Advanced caching** - Multiple optimization layers for maximum speed
+### Key Advantages
 
-## Comparison with Pydantic Settings
-
-| Feature | msgspec-ext | Pydantic Settings |
+| Feature | msgspec-ext | pydantic-settings |
 |---------|------------|-------------------|
+| **First load** | **1.5x faster** ⚡ | Baseline |
+| **Cached loads** | **112x faster** ⚡ | Baseline |
+| **Package size** | **0.49 MB** | 1.95 MB |
+| **Dependencies** | **2 (minimal)** | 5+ |
 | .env support | ✅ | ✅ |
 | Type validation | ✅ | ✅ |
-| Performance (cold) | **1.3x faster** ⚡ | Baseline |
-| Performance (warm) | **117.5x faster** ⚡ | Baseline |
-| Package size | 0.49 MB | 1.95 MB |
 | Advanced caching | ✅ | ❌ |
 | Nested config | ✅ | ✅ |
-| Field aliases | ✅ | ✅ |
 | JSON Schema | ✅ | ✅ |
 | Secret masking | ⚠️ Planned | ✅ |
-| Dependencies | Minimal (2) | More (5+) |
+
+### How is it so fast?
+
+msgspec-ext achieves its performance through:
+- **Bulk validation**: Validates all fields at once in C (via msgspec), not one-by-one in Python
+- **Smart caching**: Caches .env files, field mappings, and type information - loads after the first are 112x faster
+- **Optimized file operations**: Uses fast os.path operations instead of slower pathlib alternatives
+- **Zero overhead**: Fast paths for common types (str, bool, int, float) with minimal Python code
+
+This means your application **starts faster** and uses **less memory**, especially important for:
+- 🚀 **CLI tools** - 1.5x faster startup every time you run the command
+- ⚡ **Serverless functions** - Lower cold start latency means better response times
+- 🔄 **Long-running apps** - After the first load, reloading settings is 112x faster (16 microseconds!)
 
 ## Contributing
 
