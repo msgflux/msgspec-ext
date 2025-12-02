@@ -1,0 +1,36 @@
+name: CodeQL Security Scan
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  schedule:
+    # Run every Monday at 3am UTC
+    - cron: "0 3 * * 1"
+
+permissions:
+  actions: read
+  contents: read
+  security-events: write
+
+jobs:
+  analyze:
+    name: Analyze Python Code
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@v3
+        with:
+          languages: python
+          # Queries: security-extended includes more security checks
+          queries: security-extended
+
+      - name: Perform CodeQL Analysis
+        uses: github/codeql-action/analyze@v3
+        with:
+          category: "/language:python"

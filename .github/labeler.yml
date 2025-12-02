@@ -1,0 +1,45 @@
+# Configuration for labeler action
+# https://github.com/actions/labeler
+
+# SDK code
+sdk:
+  - changed-files:
+    - any-glob-to-any-file: 'src/msgtrace/sdk/**'
+
+# Core/Parser code
+core:
+  - changed-files:
+    - any-glob-to-any-file: 'src/msgtrace/core/**'
+
+# Tests
+tests:
+  - changed-files:
+    - any-glob-to-any-file: 'tests/**'
+
+# Documentation
+documentation:
+  - changed-files:
+    - any-glob-to-any-file:
+      - '**/*.md'
+      - 'docs/**'
+
+# CI/CD
+ci:
+  - changed-files:
+    - any-glob-to-any-file:
+      - '.github/workflows/**'
+      - '.github/dependabot.yml'
+      - '.github/labeler.yml'
+
+# Dependencies
+dependencies:
+  - changed-files:
+    - any-glob-to-any-file:
+      - 'pyproject.toml'
+      - 'uv.lock'
+      - '.pre-commit-config.yaml'
+
+# Examples
+examples:
+  - changed-files:
+    - any-glob-to-any-file: 'examples/**'
