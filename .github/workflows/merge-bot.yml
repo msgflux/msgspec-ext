@@ -389,18 +389,171 @@ jobs:
               pull_number: context.payload.issue.number
             });
 
+            // Debug information
+            core.info(`PR #${pr.number}: ${pr.title}`);
+            core.info(`- Base: ${pr.base.ref} (repo: ${pr.base.repo.full_name})`);
+            core.info(`- Head: ${pr.head.ref} (repo: ${pr.head.repo.full_name})`);
+            core.info(`- Same repo: ${pr.head.repo.full_name === pr.base.repo.full_name}`);
+
+            // Validate branch information
+            if (!pr.head.ref || !pr.base.ref) {
+              core.setFailed('Invalid PR branch information');
+              return;
+            }
+
+            // Check if it's from the same repository
+            const isSameRepo = pr.head.repo.full_name === pr.base.repo.full_name;
+
+            // Early exit for fork PRs
+            if (!isSameRepo) {
+              core.info('❌ PR is from fork - update not supported');
+              core.setOutput('is_fork', 'true');
+
+              const baseBranch = pr.base.ref;
+              const forkMessage = [
+                'ℹ️ Update commands are not supported for PRs from forks.',
+                '',
+                'To update your branch, please run these commands locally:',
+                '',
+                '```bash',
+                `git fetch upstream ${baseBranch}`,
+                `git merge upstream/${baseBranch}`,
+                'git push',
+                '```',
+                '',
+                'Or create a new PR from the same repository.'
+              ].join('\n');
+
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.payload.issue.number,
+                body: forkMessage
+              });
+
+              return;
+            }
+
             core.setOutput('base_branch', pr.base.ref);
             core.setOutput('head_branch', pr.head.ref);
             core.setOutput('head_repo', pr.head.repo.full_name);
             core.setOutput('base_repo', pr.base.repo.full_name);
+            core.setOutput('is_same_repo', isSameRepo.toString());
 
-            core.info(`PR #${pr.number}: ${pr.title}`);
-            core.info(`- Base: ${pr.base.ref}`);
-            core.info(`- Head: ${pr.head.ref}`);
-            core.info(`- Same repo: ${pr.head.repo.full_name === pr.base.repo.full_name}`);
+      - name: Validate branch exists
+        if: steps.check_perms.outputs.has_permission == 'true' && steps.pr_info.outputs.is_fork != 'true'
+        id: validate_branch
+        uses: actions/github-script@v8
+        with:
+          script: |
+            const headBranch = '${{ steps.pr_info.outputs.head_branch }}';
+            const headRepo = '${{ steps.pr_info.outputs.head_repo }}';
+            const isSameRepo = '${{ steps.pr_info.outputs.is_same_repo }}' === 'true';
+
+            core.info(`Validating branch: ${headBranch} from repo: ${headRepo}`);
+
+            try {
+              // Check if branch exists
+              const { data: branch } = await github.rest.repos.getBranch({
+                owner: headRepo.split('/')[0],
+                repo: headRepo.split('/')[1],
+                branch: headBranch
+              });
+
+              core.info(`✅ Branch exists: ${headBranch} (SHA: ${branch.commit.sha})`);
+              core.setOutput('branch_exists', 'true');
+
+            } catch (error) {
+              if (error.status === 404) {
+                core.setOutput('branch_exists', 'false');
+                core.error(`❌ Branch not found: ${headBranch}`);
+                
+                // Provide helpful error message
+                let errorMessage = `❌ Cannot update branch: Branch \`${headBranch}\` not found.`;
+                
+                if (!isSameRepo) {
+                  errorMessage += '\n\nThis appears to be a PR from a fork. Update commands only work for branches in the same repository.';
+                } else {
+                  errorMessage += '\n\nThis could mean:\n';
+                  errorMessage += '- The branch was deleted after merge\n';
+                  errorMessage += '- The branch name changed\n';
+                  errorMessage += '- There was a force push that changed the branch reference';
+                }
+
+                await github.rest.issues.createComment({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  issue_number: context.payload.issue.number,
+                  body: errorMessage
+                });
+
+                return;
+              }
+              
+              core.setFailed(`Error checking branch: ${error.message}`);
+            }
+
+      - name: Check if update is needed
+        if: steps.check_perms.outputs.has_permission == 'true' && steps.validate_branch.outputs.branch_exists == 'true'
+        id: check_update
+        uses: actions/github-script@v8
+        with:
+          script: |
+            const baseBranch = '${{ steps.pr_info.outputs.base_branch }}';
+            const headBranch = '${{ steps.pr_info.outputs.head_branch }}';
+
+            try {
+              // Get latest commit from base branch
+              const { data: baseBranchData } = await github.rest.repos.getBranch({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                branch: baseBranch
+              });
+
+              const baseSha = baseBranchData.commit.sha;
+
+              // Check if head branch is behind base (same-repo PRs only at this point)
+              const { data: comparison } = await github.rest.repos.compareCommits({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                base: baseSha,
+                head: headBranch
+              });
+
+              const isBehind = comparison.behind_by > 0;
+              const aheadBy = comparison.ahead_by;
+              const behindBy = comparison.behind_by;
+
+              core.info(`Branch comparison: ${behindBy} commits behind, ${aheadBy} commits ahead`);
+
+              if (!isBehind) {
+                core.info('✅ Branch is already up to date');
+                core.setOutput('update_needed', 'false');
+                core.setOutput('already_up_to_date', 'true');
+              } else {
+                core.info(`Update needed: ${behindBy} commits behind`);
+                core.setOutput('update_needed', 'true');
+                core.setOutput('commits_behind', behindBy.toString());
+              }
+
+            } catch (error) {
+              core.setFailed(`Error checking if update is needed: ${error.message}`);
+            }
+
+      - name: Handle already up-to-date
+        if: steps.check_perms.outputs.has_permission == 'true' && steps.check_update.outputs.already_up_to_date == 'true'
+        uses: actions/github-script@v8
+        with:
+          script: |
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.payload.issue.number,
+              body: '✅ Branch is already up to date with the latest changes!'
+            });
 
       - name: Checkout PR branch
-        if: steps.check_perms.outputs.has_permission == 'true'
+        if: steps.check_perms.outputs.has_permission == 'true' && steps.check_update.outputs.update_needed == 'true' && steps.validate_branch.outputs.branch_exists == 'true'
         uses: actions/checkout@v4
         with:
           repository: ${{ steps.pr_info.outputs.head_repo }}
@@ -409,11 +562,12 @@ jobs:
           token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Update branch
-        if: steps.check_perms.outputs.has_permission == 'true'
+        if: steps.check_perms.outputs.has_permission == 'true' && steps.check_update.outputs.update_needed == 'true' && steps.validate_branch.outputs.branch_exists == 'true'
         id: update
         run: |
           BASE_BRANCH="${{ steps.pr_info.outputs.base_branch }}"
           HEAD_BRANCH="${{ steps.pr_info.outputs.head_branch }}"
+          COMMITS_BEHIND="${{ steps.check_update.outputs.commits_behind }}"
 
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
@@ -424,7 +578,7 @@ jobs:
           echo "Merging origin/$BASE_BRANCH into $HEAD_BRANCH..."
           if git merge "origin/$BASE_BRANCH" -m "chore: Update branch with latest changes from $BASE_BRANCH"; then
             echo "merge_success=true" >> $GITHUB_OUTPUT
-            echo "✅ Branch updated successfully"
+            echo "✅ Branch updated successfully ($COMMITS_BEHIND commits merged)"
           else
             echo "merge_success=false" >> $GITHUB_OUTPUT
             git merge --abort || true
@@ -436,7 +590,9 @@ jobs:
         if: steps.update.outputs.merge_success == 'true'
         run: |
           HEAD_BRANCH="${{ steps.pr_info.outputs.head_branch }}"
-          echo "Pushing changes to $HEAD_BRANCH..."
+          HEAD_REPO="${{ steps.pr_info.outputs.head_repo }}"
+
+          echo "Pushing changes to $HEAD_BRANCH in $HEAD_REPO..."
           git push origin "$HEAD_BRANCH"
 
       - name: Comment success
@@ -446,12 +602,15 @@ jobs:
           script: |
             const user = context.payload.comment.user.login;
             const baseBranch = '${{ steps.pr_info.outputs.base_branch }}';
+            const commitsBehind = '${{ steps.check_update.outputs.commits_behind }}';
+
+            const successMessage = `✅ Branch updated successfully by @${user}!\n\nMerged ${commitsBehind} commit(s) from \`${baseBranch}\`.`;
 
             await github.rest.issues.createComment({
               owner: context.repo.owner,
               repo: context.repo.repo,
               issue_number: context.payload.issue.number,
-              body: `✅ Branch updated successfully by @${user}!\n\nMerged latest changes from \`${baseBranch}\`.`
+              body: successMessage
             });
 
             // Add +1 reaction to original comment
@@ -469,11 +628,25 @@ jobs:
           script: |
             const baseBranch = '${{ steps.pr_info.outputs.base_branch }}';
 
+            const failureMessage = [
+              `❌ Failed to update branch with latest changes from \`${baseBranch}\`.`,
+              '',
+              'This usually means there are merge conflicts that need to be resolved manually.',
+              '',
+              'Please update your branch locally:',
+              '```bash',
+              `git fetch origin ${baseBranch}`,
+              `git merge origin/${baseBranch}`,
+              '# Resolve conflicts',
+              'git push',
+              '```'
+            ].join('\n');
+
             await github.rest.issues.createComment({
               owner: context.repo.owner,
               repo: context.repo.repo,
               issue_number: context.payload.issue.number,
-              body: `❌ Failed to update branch with latest changes from \`${baseBranch}\`.\n\nThis usually means there are merge conflicts that need to be resolved manually.\n\nPlease update your branch locally:\n\`\`\`bash\ngit fetch origin ${baseBranch}\ngit merge origin/${baseBranch}\n# Resolve conflicts\ngit push\n\`\`\``
+              body: failureMessage
             });
 
             // Add -1 reaction to original comment
