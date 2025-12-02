@@ -7,7 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.3] - 2025-12-02
+
 ## [0.3.2] - 2025-12-02
+
+### Changed
+- Aligned all GitHub Actions workflows and configurations with msgtrace-sdk standards
+- Added CodeQL security scanning workflow
+- Added automatic PR labeling workflow (disabled for fork PRs)
+- Added monthly pre-commit hook auto-update workflow
+- Updated publish workflow to automatically create release tags
+
+### Fixed
+- Fixed publish workflow version extraction to use grep instead of Python import
+- Disabled labeler workflow to prevent failures on fork PRs
 
 ## [0.3.1] - 2025-12-02
 
