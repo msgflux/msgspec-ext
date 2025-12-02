@@ -1,0 +1,130 @@
+name: Label PRs
+
+on:
+  pull_request:
+    types: [opened, edited, synchronize]
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  label:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Label PR based on files
+        uses: actions/labeler@v6
+        with:
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
+          configuration-path: .github/labeler.yml
+
+      - name: Label PR based on size
+        uses: actions/github-script@v8
+        with:
+          script: |
+            const pr = context.payload.pull_request;
+            const additions = pr.additions;
+            const deletions = pr.deletions;
+            const totalChanges = additions + deletions;
+
+            // Remove existing size labels
+            const existingLabels = pr.labels.map(label => label.name);
+            const sizeLabels = ['size/XS', 'size/S', 'size/M', 'size/L', 'size/XL'];
+            const labelsToRemove = existingLabels.filter(label => sizeLabels.includes(label));
+
+            for (const label of labelsToRemove) {
+              await github.rest.issues.removeLabel({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: pr.number,
+                name: label
+              });
+            }
+
+            // Determine size label
+            let sizeLabel;
+            if (totalChanges < 10) {
+              sizeLabel = 'size/XS';
+            } else if (totalChanges < 50) {
+              sizeLabel = 'size/S';
+            } else if (totalChanges < 200) {
+              sizeLabel = 'size/M';
+            } else if (totalChanges < 500) {
+              sizeLabel = 'size/L';
+            } else {
+              sizeLabel = 'size/XL';
+            }
+
+            // Add new size label
+            await github.rest.issues.addLabels({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: pr.number,
+              labels: [sizeLabel]
+            });
+
+            core.info(`Added label: ${sizeLabel} (${totalChanges} changes)`);
+
+      - name: Label PR based on title
+        uses: actions/github-script@v8
+        with:
+          script: |
+            const pr = context.payload.pull_request;
+            const title = pr.title.toLowerCase();
+
+            const labels = [];
+
+            // Conventional commit prefixes (case-insensitive with [] or () brackets)
+            const patterns = {
+              feat: /^(feat|FEAT)[\[:(]/,
+              fix: /^(fix|FIX)[\[:(]/,
+              docs: /^(docs|DOCS)[\[:(]/,
+              test: /^(test|TEST|tests|TESTS)[\[:(]/,
+              chore: /^(chore|CHORE)[\[:(]/,
+              refactor: /^(refactor|REFACTOR)[\[:(]/,
+              perf: /^(perf|PERF)[\[:(]/,
+              style: /^(style|STYLE)[\[:(]/,
+              ci: /^(ci|CI)[\[:(]/,
+            };
+
+            if (patterns.feat.test(pr.title)) {
+              labels.push('enhancement');
+            } else if (patterns.fix.test(pr.title)) {
+              labels.push('bug');
+            } else if (patterns.docs.test(pr.title)) {
+              labels.push('documentation');
+            } else if (patterns.test.test(pr.title)) {
+              labels.push('tests');
+            } else if (patterns.chore.test(pr.title)) {
+              labels.push('maintenance');
+            } else if (patterns.refactor.test(pr.title)) {
+              labels.push('refactor');
+            } else if (patterns.perf.test(pr.title)) {
+              labels.push('performance');
+            } else if (patterns.ci.test(pr.title)) {
+              labels.push('ci');
+            }
+
+            // Keywords
+            if (title.includes('breaking') || title.includes('breaking change')) {
+              labels.push('breaking-change');
+            }
+
+            if (title.includes('security')) {
+              labels.push('security');
+            }
+
+            // Add labels
+            if (labels.length > 0) {
+              await github.rest.issues.addLabels({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: pr.number,
+                labels: labels
+              });
+
+              core.info(`Added labels: ${labels.join(', ')}`);
+            }
