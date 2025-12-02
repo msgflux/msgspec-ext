@@ -40,7 +40,7 @@ jobs:
       - name: Get current version
         id: current
         run: |
-          VERSION=$(python -c "import sys; sys.path.insert(0, 'src'); from msgspec_ext.version import __version__; print(__version__)")
+          VERSION=$(grep -oP '__version__ = "\K[^"]+' src/msgspec_ext/version.py)
           echo "version=$VERSION" >> $GITHUB_OUTPUT
           echo "Current version: $VERSION"
 
@@ -130,7 +130,7 @@ jobs:
       - name: Get version
         id: version
         run: |
-          VERSION=$(python -c "import sys; sys.path.insert(0, 'src'); from msgspec_ext.version import __version__; print(__version__)")
+          VERSION=$(grep -oP '__version__ = "\K[^"]+' src/msgspec_ext/version.py)
           echo "version=$VERSION" >> $GITHUB_OUTPUT
 
       - name: Create GitHub Release
