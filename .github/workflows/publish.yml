@@ -1,118 +1,158 @@
 name: Release
 
-# Dynamic run name that appears in the GitHub UI
-run-name: Release version ${{ github.ref_name }} of the SDK
-
 on:
-    workflow_dispatch:
-  
-# ensures only a single instance of this release workflow is running at any one time
-concurrency:
-  group: release-${{ github.ref_name }}
-  cancel-in-progress: true
+  workflow_run:
+    workflows: ["Validate Release"]
+    types:
+      - completed
+    branches: [main]
 
-env:
-  PACKAGE_NAME: "msgspec-ext"
-  TEST_PYPI_URL: "https://test.pypi.org/pypi"
-  PYPI_URL: "https://pypi.org/pypi"
+permissions:
+  contents: write
+  id-token: write
 
 jobs:
-  get_tag_details:
-    name: Get Tag Details
+  build-and-tag:
+    name: Build and Tag
+    # Only run if validation succeeded and commit has RELEASE marker
+    if: |
+      github.event.workflow_run.conclusion == 'success' &&
+      contains(github.event.workflow_run.head_commit.message, 'RELEASE:')
     runs-on: ubuntu-latest
-    outputs:
-      tag_name: ${{ steps.release.outputs.tag_name }}
-      new_version: ${{ steps.release.outputs.new_version }}
+
     steps:
-      - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0 # fetch all history
-
-      - name: Check if a tag is selected
-        run: |
-          if [ "${{ github.ref_type }}" != "tag" ]; then
-            echo "Error: Workflow must be triggered with a tag selected. Current ref_type is ${{ github.ref_type }}."
-            exit 1
-          fi
-          TAG_NAME=${{ github.ref_name }}
-          echo "Selected tag is $TAG_NAME"
-
-      - name: Extract version from tag
-        id: release
-        run: |
-          TAG_NAME=${{ github.ref_name }}
-          # Validate tag format
-          if [[ ! $TAG_NAME =~ ^v[0-9]+\.[0-9]+\.[0-9]+(a[0-9]+|b[0-9]+|rc[0-9]+)?$ ]]; then
-            echo "Invalid tag format. Tag must be in the format vX.Y.Z, vX.Y.ZaN, vX.Y.ZbN, or vX.Y.ZrcN."
-            exit 1
-          fi
-          NEW_VERSION=${TAG_NAME#v}
-          echo "tag_name=$TAG_NAME" >> "$GITHUB_OUTPUT"
-          echo "new_version=$NEW_VERSION" >> "$GITHUB_OUTPUT"
-          echo "Tag name is $TAG_NAME"
-          echo "Version is $NEW_VERSION"
-
-  setup_build_and_publish:
-    name: Build Package and Publish to PyPI
-    needs: [get_tag_details]
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      id-token: write # Required for trusted publishing to PyPI
-    steps:
-      - name: Checkout the repository
+      - name: Checkout repository
         uses: actions/checkout@v4
         with:
-          fetch-depth: 0
+          fetch-depth: 2
 
       - name: Set up Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v6
         with:
-          python-version: "3.10"
+          python-version: '3.10'
 
       - name: Install uv
-        uses: astral-sh/setup-uv@8f1d388b4b83ba56ec25d3787080bc053a2512e8 # v6
-        with:
-          version: "0.7.3"
+        uses: astral-sh/setup-uv@v7
+
+      - name: Install packaging
+        run: pip install packaging
+
+      - name: Get current version
+        id: current
+        run: |
+          VERSION=$(python -c "import sys; sys.path.insert(0, 'src'); from msgspec_ext.version import __version__; print(__version__)")
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "Current version: $VERSION"
+
+      - name: Get previous version
+        id: previous
+        run: |
+          PREV_VERSION=$(git show HEAD~1:src/msgspec_ext/version.py 2>/dev/null | grep -oP '__version__ = "\K[^"]+' || echo "0.0.0")
+          echo "version=$PREV_VERSION" >> $GITHUB_OUTPUT
+          echo "Previous version: $PREV_VERSION"
+
+      - name: Validate version bump
+        id: validate
+        run: |
+          python << EOF
+          from packaging.version import parse as parse_version
+          import sys
+
+          current = "${{ steps.current.outputs.version }}"
+          previous = "${{ steps.previous.outputs.version }}"
+
+          print(f"Comparing: {previous} -> {current}")
+
+          if parse_version(current) > parse_version(previous):
+              print(f"✅ Version bumped from {previous} to {current}")
+              sys.exit(0)
+          elif parse_version(current) == parse_version(previous):
+              print(f"⚠️ No version change detected")
+              sys.exit(1)
+          else:
+              print(f"❌ Version downgrade detected: {previous} -> {current}")
+              sys.exit(1)
+          EOF
 
       - name: Install dependencies
         run: uv sync --locked
 
-      - name: Build source and wheel distribution
-        run: |
-          uv build
+      - name: Build package
+        run: uv build
 
-      - name: Upload build artifacts
-        uses: actions/upload-artifact@v5
+      - name: Check package
+        run: uv run twine check dist/*
+
+      - name: Create and push tag
+        run: |
+          VERSION="v${{ steps.current.outputs.version }}"
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git tag -a "$VERSION" -m "Release ${{ steps.current.outputs.version }}"
+          git push origin "$VERSION"
+          echo "✅ Created and pushed tag: $VERSION"
+
+      - name: Upload dist artifacts
+        uses: actions/upload-artifact@v4
         with:
-          name: dist
-          path: dist/*
-          if-no-files-found: error
+          name: python-package-distributions
+          path: dist/
+
+  publish:
+    name: Publish to PyPI
+    needs: build-and-tag
+    runs-on: ubuntu-latest
+    environment: pypi
+    permissions:
+      id-token: write
+
+    steps:
+      - name: Download dist artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: python-package-distributions
+          path: dist/
 
       - name: Publish to PyPI
-        run: uv publish
+        uses: pypa/gh-action-pypi-publish@release/v1
 
-  github_release:
+  create-release:
     name: Create GitHub Release
-    needs: [get_tag_details, setup_build_and_publish]
+    needs: publish
     runs-on: ubuntu-latest
     permissions:
       contents: write
-    steps:
-      - name: Checkout Code
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
 
-      - name: Download build artifacts
-        uses: actions/download-artifact@v6
-        with:
-          name: dist
-          path: dist/
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Get version
+        id: version
+        run: |
+          VERSION=$(python -c "import sys; sys.path.insert(0, 'src'); from msgspec_ext.version import __version__; print(__version__)")
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
 
       - name: Create GitHub Release
-        id: create_release
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          gh release create ${{ needs.get_tag_details.outputs.tag_name }} dist/* --title ${{ needs.get_tag_details.outputs.tag_name }} --generate-notes
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v${{ steps.version.outputs.version }}
+          name: Release v${{ steps.version.outputs.version }}
+          body: |
+            ## Release v${{ steps.version.outputs.version }}
+
+            See [CHANGELOG.md](https://github.com/msgflux/msgspec-ext/blob/main/CHANGELOG.md) for details.
+
+            ### Installation
+
+            ```bash
+            pip install msgspec-ext==${{ steps.version.outputs.version }}
+            ```
+
+            Or with uv:
+
+            ```bash
+            uv add msgspec-ext==${{ steps.version.outputs.version }}
+            ```
+          draft: false
+          prerelease: false
