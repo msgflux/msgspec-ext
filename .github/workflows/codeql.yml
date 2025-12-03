@@ -29,6 +29,8 @@ jobs:
           languages: python
           # Queries: security-extended includes more security checks
           queries: security-extended
+          # Use custom config to exclude example files
+          config-file: ./.github/codeql/codeql-config.yml
 
       - name: Perform CodeQL Analysis
         uses: github/codeql-action/analyze@v3
