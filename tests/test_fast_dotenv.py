@@ -1,19 +1,19 @@
 import os
-import tempfile
-import pytest
 import sys
+import tempfile
 from pathlib import Path
 
+import pytest
 
 # Add src to path
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
-from msgspec_ext.fast_dotenv import parse_env_file, load_dotenv
+from msgspec_ext.fast_dotenv import load_dotenv, parse_env_file
 
 
 class TestFileReading:
     """Test comprehensive file reading scenarios."""
-    
+
     def test_empty_file(self):
         """Test parsing empty file."""
         with tempfile.NamedTemporaryFile(mode="w", suffix=".env", delete=False) as f:
@@ -22,7 +22,7 @@ class TestFileReading:
             result = parse_env_file(f.name)
             assert result == {}
             Path(f.name).unlink()
-    
+
     def test_whitespace_only_file(self):
         """Test file with only whitespace."""
         content = "   \n\t\n  \n"
@@ -32,7 +32,7 @@ class TestFileReading:
             result = parse_env_file(f.name)
             assert result == {}
             Path(f.name).unlink()
-    
+
     def test_comments_only_file(self):
         """Test file with only comments."""
         content = "# This is a comment\n# Another comment\n# Third comment"
@@ -42,7 +42,7 @@ class TestFileReading:
             result = parse_env_file(f.name)
             assert result == {}
             Path(f.name).unlink()
-    
+
     def test_mixed_whitespace_comments(self):
         """Test file with mixed whitespace and comments."""
         content = "# Comment 1\n   \n# Comment 2\n\t\n   # Comment 3"
@@ -52,17 +52,17 @@ class TestFileReading:
             result = parse_env_file(f.name)
             assert result == {}
             Path(f.name).unlink()
-    
+
     def test_file_with_bom(self):
         """Test file with UTF-8 BOM."""
         content = "VAR1=value1\nVAR2=value2"
         with tempfile.NamedTemporaryFile(mode="wb", suffix=".env", delete=False) as f:
-            f.write(b'\xef\xbb\xbf' + content.encode('utf-8'))
+            f.write(b"\xef\xbb\xbf" + content.encode("utf-8"))
             f.flush()
             result = parse_env_file(f.name)
             assert result == {"VAR1": "value1", "VAR2": "value2"}
             Path(f.name).unlink()
-    
+
     def test_very_long_lines(self):
         """Test file with very long lines."""
         long_value = "x" * 10000
@@ -74,7 +74,7 @@ class TestFileReading:
             assert result["LONG_VAR"] == long_value
             assert len(result["LONG_VAR"]) == 10000
             Path(f.name).unlink()
-    
+
     def test_very_long_variable_names(self):
         """Test file with very long variable names."""
         long_name = "X" * 1000
@@ -85,7 +85,7 @@ class TestFileReading:
             result = parse_env_file(f.name)
             assert result[long_name] == "value"
             Path(f.name).unlink()
-    
+
     def test_large_file_performance(self):
         """Test parsing large file with many variables."""
         # Create file with 1000 variables
@@ -102,51 +102,61 @@ class TestFileReading:
 
 class TestEncodingScenarios:
     """Test various encoding scenarios."""
-    
+
     def test_utf8_encoding(self):
         """Test UTF-8 encoded files."""
         content = "UTF_VAR=value with unicode: café, naïve, 日本語"
-        with tempfile.NamedTemporaryFile(mode="w", suffix=".env", encoding="utf-8", delete=False) as f:
+        with tempfile.NamedTemporaryFile(
+            mode="w", suffix=".env", encoding="utf-8", delete=False
+        ) as f:
             f.write(content)
             f.flush()
             result = parse_env_file(f.name, encoding="utf-8")
             assert result["UTF_VAR"] == "value with unicode: café, naïve, 日本語"
             Path(f.name).unlink()
-    
+
     def test_latin1_encoding(self):
         """Test Latin-1 encoded files."""
         content = "LATIN_VAR=value with accents: café, naïve"
-        with tempfile.NamedTemporaryFile(mode="w", suffix=".env", encoding="latin-1", delete=False) as f:
+        with tempfile.NamedTemporaryFile(
+            mode="w", suffix=".env", encoding="latin-1", delete=False
+        ) as f:
             f.write(content)
             f.flush()
             result = parse_env_file(f.name, encoding="latin-1")
             assert result["LATIN_VAR"] == "value with accents: café, naïve"
             Path(f.name).unlink()
-    
+
     def test_different_encodings_same_content(self):
         """Test same content with different encodings."""
         content = "TEST_VAR=simple_value"
-        
+
         # UTF-8
-        with tempfile.NamedTemporaryFile(mode="w", suffix=".env", encoding="utf-8", delete=False) as f:
+        with tempfile.NamedTemporaryFile(
+            mode="w", suffix=".env", encoding="utf-8", delete=False
+        ) as f:
             f.write(content)
             f.flush()
             result_utf8 = parse_env_file(f.name, encoding="utf-8")
             Path(f.name).unlink()
-        
+
         # Latin-1
-        with tempfile.NamedTemporaryFile(mode="w", suffix=".env", encoding="latin-1", delete=False) as f:
+        with tempfile.NamedTemporaryFile(
+            mode="w", suffix=".env", encoding="latin-1", delete=False
+        ) as f:
             f.write(content)
             f.flush()
             result_latin = parse_env_file(f.name, encoding="latin-1")
             Path(f.name).unlink()
-        
+
         assert result_utf8 == result_latin
-    
+
     def test_encoding_with_special_chars(self):
         """Test encoding with special characters."""
         content = 'SPECIAL_VAR="value with emojis: 🚀 🎯 ⚡"'
-        with tempfile.NamedTemporaryFile(mode="w", suffix=".env", encoding="utf-8", delete=False) as f:
+        with tempfile.NamedTemporaryFile(
+            mode="w", suffix=".env", encoding="utf-8", delete=False
+        ) as f:
             f.write(content)
             f.flush()
             result = parse_env_file(f.name, encoding="utf-8")
@@ -156,7 +166,7 @@ class TestEncodingScenarios:
 
 class TestEdgeCases:
     """Test edge cases and corner scenarios."""
-    
+
     def test_no_newline_at_end(self):
         """Test file without newline at end."""
         content = "VAR1=value1\nVAR2=value2"  # No final newline
@@ -166,7 +176,7 @@ class TestEdgeCases:
             result = parse_env_file(f.name)
             assert result == {"VAR1": "value1", "VAR2": "value2"}
             Path(f.name).unlink()
-    
+
     def test_multiple_newlines(self):
         """Test file with multiple consecutive newlines."""
         content = "VAR1=value1\n\n\n\nVAR2=value2"
@@ -176,7 +186,7 @@ class TestEdgeCases:
             result = parse_env_file(f.name)
             assert result == {"VAR1": "value1", "VAR2": "value2"}
             Path(f.name).unlink()
-    
+
     def test_carriage_return_handling(self):
         """Test handling of carriage returns."""
         content = "VAR1=value1\r\nVAR2=value2\r\nVAR3=value3"
@@ -186,7 +196,7 @@ class TestEdgeCases:
             result = parse_env_file(f.name)
             assert result == {"VAR1": "value1", "VAR2": "value2", "VAR3": "value3"}
             Path(f.name).unlink()
-    
+
     def test_mixed_line_endings(self):
         """Test mixed line ending styles."""
         content = "VAR1=value1\nVAR2=value2\r\nVAR3=value3\nVAR4=value4\r\n"
@@ -194,9 +204,14 @@ class TestEdgeCases:
             f.write(content)
             f.flush()
             result = parse_env_file(f.name)
-            assert result == {"VAR1": "value1", "VAR2": "value2", "VAR3": "value3", "VAR4": "value4"}
+            assert result == {
+                "VAR1": "value1",
+                "VAR2": "value2",
+                "VAR3": "value3",
+                "VAR4": "value4",
+            }
             Path(f.name).unlink()
-    
+
     def test_trailing_whitespace(self):
         """Test handling of trailing whitespace."""
         content = "VAR1=value1   \nVAR2=value2\t\nVAR3=value3 \t"
@@ -206,7 +221,7 @@ class TestEdgeCases:
             result = parse_env_file(f.name)
             assert result == {"VAR1": "value1", "VAR2": "value2", "VAR3": "value3"}
             Path(f.name).unlink()
-    
+
     def test_leading_whitespace(self):
         """Test handling of leading whitespace."""
         content = "   VAR1=value1\n\tVAR2=value2\n VAR3=value3"
@@ -220,7 +235,7 @@ class TestEdgeCases:
 
 class TestQuoteHandling:
     """Test comprehensive quote handling scenarios."""
-    
+
     def test_single_quotes(self):
         """Test single quoted values."""
         content = "VAR1='value1'\nVAR2='value with spaces'\nVAR3='value with = equals'"
@@ -232,7 +247,7 @@ class TestQuoteHandling:
             assert result["VAR2"] == "value with spaces"
             assert result["VAR3"] == "value with = equals"
             Path(f.name).unlink()
-    
+
     def test_double_quotes(self):
         """Test double quoted values."""
         content = 'VAR1="value1"\nVAR2="value with spaces"\nVAR3="value with = equals"'
@@ -244,10 +259,10 @@ class TestQuoteHandling:
             assert result["VAR2"] == "value with spaces"
             assert result["VAR3"] == "value with = equals"
             Path(f.name).unlink()
-    
+
     def test_mixed_quotes(self):
         """Test mixed quote styles."""
-        content = 'VAR1="double quoted"\nVAR2=\'single quoted\'\nVAR3=unquoted'
+        content = "VAR1=\"double quoted\"\nVAR2='single quoted'\nVAR3=unquoted"
         with tempfile.NamedTemporaryFile(mode="w", suffix=".env", delete=False) as f:
             f.write(content)
             f.flush()
@@ -256,7 +271,7 @@ class TestQuoteHandling:
             assert result["VAR2"] == "single quoted"
             assert result["VAR3"] == "unquoted"
             Path(f.name).unlink()
-    
+
     def test_escaped_quotes_double(self):
         """Test escaped quotes in double quoted values."""
         content = 'VAR1="value with \\"escaped\\" quotes"\nVAR2="normal value"'
@@ -267,10 +282,10 @@ class TestQuoteHandling:
             assert result["VAR1"] == 'value with "escaped" quotes'
             assert result["VAR2"] == "normal value"
             Path(f.name).unlink()
-    
+
     def test_escaped_quotes_single(self):
         """Test escaped quotes in single quoted values."""
-        content = "VAR1='value with \\\'escaped\\\' quotes'\nVAR2='normal value'"
+        content = "VAR1='value with \\'escaped\\' quotes'\nVAR2='normal value'"
         with tempfile.NamedTemporaryFile(mode="w", suffix=".env", delete=False) as f:
             f.write(content)
             f.flush()
@@ -278,10 +293,12 @@ class TestQuoteHandling:
             assert result["VAR1"] == "value with 'escaped' quotes"
             assert result["VAR2"] == "normal value"
             Path(f.name).unlink()
-    
+
     def test_nested_quotes(self):
         """Test nested quote scenarios."""
-        content = 'VAR1="value with \'nested\' quotes"\nVAR2=\'value with "nested" quotes\''
+        content = (
+            "VAR1=\"value with 'nested' quotes\"\nVAR2='value with \"nested\" quotes'"
+        )
         with tempfile.NamedTemporaryFile(mode="w", suffix=".env", delete=False) as f:
             f.write(content)
             f.flush()
@@ -289,10 +306,10 @@ class TestQuoteHandling:
             assert result["VAR1"] == "value with 'nested' quotes"
             assert result["VAR2"] == 'value with "nested" quotes'
             Path(f.name).unlink()
-    
+
     def test_incomplete_quotes(self):
         """Test incomplete quote handling."""
-        content = 'VAR1="incomplete quote\nVAR2=normal_value\nVAR3=\'another incomplete'
+        content = "VAR1=\"incomplete quote\nVAR2=normal_value\nVAR3='another incomplete"
         with tempfile.NamedTemporaryFile(mode="w", suffix=".env", delete=False) as f:
             f.write(content)
             f.flush()
@@ -301,10 +318,10 @@ class TestQuoteHandling:
             assert "VAR2" in result
             assert result["VAR2"] == "normal_value"
             Path(f.name).unlink()
-    
+
     def test_empty_quoted_values(self):
         """Test empty quoted values."""
-        content = 'VAR1=""\nVAR2=\'\'\nVAR3=""\nVAR4=\'\''
+        content = "VAR1=\"\"\nVAR2=''\nVAR3=\"\"\nVAR4=''"
         with tempfile.NamedTemporaryFile(mode="w", suffix=".env", delete=False) as f:
             f.write(content)
             f.flush()
@@ -314,7 +331,7 @@ class TestQuoteHandling:
             assert result["VAR3"] == ""
             assert result["VAR4"] == ""
             Path(f.name).unlink()
-    
+
     def test_quotes_with_special_chars(self):
         """Test quotes containing special characters."""
         content = 'VAR1="value with $pecial@Chars#"\nVAR2="value with = equals"\nVAR3="value with : colon"'
@@ -330,7 +347,7 @@ class TestQuoteHandling:
 
 class TestSpecialValues:
     """Test special value scenarios."""
-    
+
     def test_values_with_equals(self):
         """Test values containing equals signs."""
         content = "VAR1=key=value\nVAR2=equation=x+y=z\nVAR3=url=https://example.com?param=value"
@@ -342,7 +359,7 @@ class TestSpecialValues:
             assert result["VAR2"] == "equation=x+y=z"
             assert result["VAR3"] == "url=https://example.com?param=value"
             Path(f.name).unlink()
-    
+
     def test_values_with_spaces(self):
         """Test values with various spacing."""
         content = "VAR1=value with spaces\nVAR2=  leading spaces\nVAR3=trailing spaces  \nVAR4=  both spaces  "
@@ -354,9 +371,11 @@ class TestSpecialValues:
             # Preserves spaces in unquoted values ​​(removes trailing only).
             assert result["VAR2"] == "  leading spaces"  # preserves leading spaces
             assert result["VAR3"] == "trailing spaces"  # remove trailing spaces
-            assert result["VAR4"] == "  both spaces"  # removes trailing but preserves leading
+            assert (
+                result["VAR4"] == "  both spaces"
+            )  # removes trailing but preserves leading
             Path(f.name).unlink()
-    
+
     def test_values_with_newlines(self):
         """Test quoted values containing newlines."""
         content = 'VAR1="line1\\nline2\\nline3"\nVAR2="single line"'
@@ -367,7 +386,7 @@ class TestSpecialValues:
             assert result["VAR1"] == "line1\nline2\nline3"
             assert result["VAR2"] == "single line"
             Path(f.name).unlink()
-    
+
     def test_values_with_tabs(self):
         """Test values containing tab characters."""
         # Using real-world content with escape sequences
@@ -379,7 +398,7 @@ class TestSpecialValues:
             assert result["VAR1"] == "value\twith\ttabs"
             assert result["VAR2"] == "normal_value"
             Path(f.name).unlink()
-    
+
     def test_zero_values(self):
         """Test numeric zero values."""
         content = "VAR1=0\nVAR2=0.0\nVAR3=0000\nVAR4=-0"
@@ -392,7 +411,7 @@ class TestSpecialValues:
             assert result["VAR3"] == "0000"
             assert result["VAR4"] == "-0"
             Path(f.name).unlink()
-    
+
     def test_boolean_like_values(self):
         """Test boolean-like string values."""
         content = "VAR1=true\nVAR2=false\nVAR3=True\nVAR4=False\nVAR5=TRUE\nVAR6=FALSE"
@@ -407,18 +426,22 @@ class TestSpecialValues:
             assert result["VAR5"] == "TRUE"
             assert result["VAR6"] == "FALSE"
             Path(f.name).unlink()
-    
+
     def test_special_symbols(self):
         """Test values with special symbols."""
         # Starts comment on unquoted values
         content = "VAR1=!@#$%^&*()\nVAR2=<>?:\"{}|\\\\\nVAR3=[];',./\nVAR4=±§©®™"
-        with tempfile.NamedTemporaryFile(mode="w", suffix=".env", encoding="utf-8", delete=False) as f:
+        with tempfile.NamedTemporaryFile(
+            mode="w", suffix=".env", encoding="utf-8", delete=False
+        ) as f:
             f.write(content)
             f.flush()
             result = parse_env_file(f.name)
             # treats # as the beginning of a comment in unquoted values
             assert result["VAR1"] == "!@"  # Everything after # is a comment
-            assert result["VAR2"] == "<>?:\"{}|\\\\"  # Without #, it preserves everything
+            assert (
+                result["VAR2"] == '<>?:"{}|\\\\'
+            )  # Without #, it preserves everything
             assert result["VAR3"] == "[];',./"
             assert result["VAR4"] == "±§©®™"
             Path(f.name).unlink()
@@ -426,7 +449,7 @@ class TestSpecialValues:
 
 class TestVariableNames:
     """Test variable name validation and handling."""
-    
+
     def test_valid_variable_names(self):
         """Test various valid variable name formats."""
         content = """
@@ -442,14 +465,14 @@ VAR_WITH_UNDERSCORES=value5
             result = parse_env_file(f.name)
             expected = {
                 "SIMPLE_VAR": "value1",
-                "_with_underscore": "value2", 
+                "_with_underscore": "value2",
                 "WITH123NUMBERS": "value3",
                 "MixedCase_VAR": "value4",
-                "VAR_WITH_UNDERSCORES": "value5"
+                "VAR_WITH_UNDERSCORES": "value5",
             }
             assert result == expected
             Path(f.name).unlink()
-    
+
     def test_invalid_variable_names(self):
         """Test handling of invalid variable names."""
         content = """
@@ -465,7 +488,7 @@ invalid space=has_space
             # Should skip invalid names, only export pattern might work
             assert len(result) <= 1  # At most the export pattern
             Path(f.name).unlink()
-    
+
     def test_export_pattern(self):
         """Test export keyword patterns."""
         content = """
@@ -483,7 +506,7 @@ export VAR4="quoted value"
             assert result["VAR3"] == "value3"
             assert result["VAR4"] == "quoted value"
             Path(f.name).unlink()
-    
+
     def test_case_sensitivity(self):
         """Test case sensitivity in variable names."""
         content = """
@@ -509,12 +532,12 @@ var_lower_duplicate=value4
 
 class TestErrorHandling:
     """Test error handling and edge error cases."""
-    
+
     def test_nonexistent_file(self):
         """Test handling of non-existent file."""
         result = parse_env_file("nonexistent_file.env")
         assert result == {}
-    
+
     def test_file_permission_error(self):
         """Test file permission errors."""
         with tempfile.NamedTemporaryFile(mode="w", suffix=".env", delete=False) as f:
@@ -536,17 +559,19 @@ class TestErrorHandling:
                 except OSError:
                     pass
                 Path(f.name).unlink()
-    
+
     def test_directory_instead_of_file(self):
         """Test when path is a directory instead of file."""
         with tempfile.TemporaryDirectory() as temp_dir:
             result = parse_env_file(temp_dir)
             assert result == {}
-    
+
     def test_binary_file_handling(self):
         """Test handling of binary/non-text files."""
         # Create a file with binary content
-        binary_content = b'\x00\x01\x02\x03\x04\x05\x06\x07\x08\x09\x0a\x0b\x0c\x0d\x0e\x0f'
+        binary_content = (
+            b"\x00\x01\x02\x03\x04\x05\x06\x07\x08\x09\x0a\x0b\x0c\x0d\x0e\x0f"
+        )
         with tempfile.NamedTemporaryFile(mode="wb", suffix=".env", delete=False) as f:
             f.write(binary_content)
             f.flush()
@@ -554,13 +579,13 @@ class TestErrorHandling:
             # Should handle gracefully
             assert isinstance(result, dict)
             Path(f.name).unlink()
-    
+
     def test_symlink_handling(self):
         """Test handling of symbolic links."""
         with tempfile.NamedTemporaryFile(mode="w", suffix=".env", delete=False) as f:
             f.write("VAR1=value1")
             f.flush()
-            
+
             # Create symlink
             symlink_path = f.name + ".symlink"
             try:
@@ -576,7 +601,7 @@ class TestErrorHandling:
                 except OSError:
                     pass
                 Path(f.name).unlink()
-    
+
     def test_malformed_lines(self):
         """Test handling of malformed lines."""
         content = """
@@ -601,82 +626,82 @@ VALID_VAR_2=another_value
 
 class TestLoadingFunction:
     """Test the load_dotenv function comprehensively."""
-    
+
     def test_load_env_basic(self):
         """Test basic loading functionality."""
         content = "TEST_LOAD_VAR=test_value"
         with tempfile.NamedTemporaryFile(mode="w", suffix=".env", delete=False) as f:
             f.write(content)
             f.flush()
-            
+
             # Clear any existing env var
             if "TEST_LOAD_VAR" in os.environ:
                 del os.environ["TEST_LOAD_VAR"]
-            
+
             result = load_dotenv(f.name)
             assert result is True
             assert os.environ.get("TEST_LOAD_VAR") == "test_value"
-            
+
             # Cleanup
             if "TEST_LOAD_VAR" in os.environ:
                 del os.environ["TEST_LOAD_VAR"]
             Path(f.name).unlink()
-    
+
     def test_load_env_no_override(self):
         """Test that existing environment variables are not overridden."""
         content = "EXISTING_VAR=new_value"
         with tempfile.NamedTemporaryFile(mode="w", suffix=".env", delete=False) as f:
             f.write(content)
             f.flush()
-            
+
             # Set existing environment variable
             original_value = "original_value"
             os.environ["EXISTING_VAR"] = original_value
-            
+
             result = load_dotenv(f.name)
             assert result is True
             # Should not override existing variable
             assert os.environ.get("EXISTING_VAR") == original_value
-            
+
             # Cleanup
             del os.environ["EXISTING_VAR"]
             Path(f.name).unlink()
-    
+
     def test_load_env_override(self):
         """Test override functionality."""
         content = "OVERRIDE_VAR=new_value"
         with tempfile.NamedTemporaryFile(mode="w", suffix=".env", delete=False) as f:
             f.write(content)
             f.flush()
-            
+
             # Set existing environment variable
             os.environ["OVERRIDE_VAR"] = "original_value"
-            
+
             result = load_dotenv(f.name, override=True)
             assert result is True
             # Should override existing variable
             assert os.environ.get("OVERRIDE_VAR") == "new_value"
-            
+
             # Cleanup
             del os.environ["OVERRIDE_VAR"]
             Path(f.name).unlink()
-    
+
     def test_load_env_empty_file(self):
         """Test loading empty file."""
         with tempfile.NamedTemporaryFile(mode="w", suffix=".env", delete=False) as f:
             f.write("")
             f.flush()
-            
+
             result = load_dotenv(f.name)
             assert result is False  # Empty file should return False
-            
+
             Path(f.name).unlink()
-    
+
     def test_load_env_nonexistent_file(self):
         """Test loading non-existent file."""
         result = load_dotenv("nonexistent_file.env")
         assert result is False
-    
+
     def test_load_env_multiple_variables(self):
         """Test loading multiple variables."""
         content = """
@@ -689,29 +714,29 @@ VAR_5=value5
         with tempfile.NamedTemporaryFile(mode="w", suffix=".env", delete=False) as f:
             f.write(content)
             f.flush()
-            
+
             # Clear any existing vars
             for i in range(1, 6):
                 var_name = f"VAR_{i}"
                 if var_name in os.environ:
                     del os.environ[var_name]
-            
+
             result = load_dotenv(f.name)
             assert result is True
-            
+
             # Verify all variables were loaded
             for i in range(1, 6):
                 var_name = f"VAR_{i}"
                 assert os.environ.get(var_name) == f"value{i}"
-            
+
             # Cleanup
             for i in range(1, 6):
                 var_name = f"VAR_{i}"
                 if var_name in os.environ:
                     del os.environ[var_name]
-            
+
             Path(f.name).unlink()
-    
+
     def test_load_env_with_special_chars(self):
         """Test loading variables with special characters."""
         content = """
@@ -722,30 +747,30 @@ URL_VAR=https://example.com/path?param=value
         with tempfile.NamedTemporaryFile(mode="w", suffix=".env", delete=False) as f:
             f.write(content)
             f.flush()
-            
+
             # Clear existing
             for var in ["SPECIAL_VAR", "SYMBOLS_VAR", "URL_VAR"]:
                 if var in os.environ:
                     del os.environ[var]
-            
+
             result = load_dotenv(f.name)
             assert result is True
-            
+
             assert os.environ.get("SPECIAL_VAR") == "quoted value with spaces"
             assert os.environ.get("SYMBOLS_VAR") == "!@#$%^&*()"
             assert os.environ.get("URL_VAR") == "https://example.com/path?param=value"
-            
+
             # Cleanup
             for var in ["SPECIAL_VAR", "SYMBOLS_VAR", "URL_VAR"]:
                 if var in os.environ:
                     del os.environ[var]
-            
+
             Path(f.name).unlink()
 
 
 class TestRealWorldScenarios:
     """Test real-world scenarios and common use cases."""
-    
+
     def test_typical_web_app_env(self):
         """Test typical web application .env file."""
         content = """
@@ -791,17 +816,19 @@ CDN_URL=https://cdn.myapp.com
             f.write(content)
             f.flush()
             result = parse_env_file(f.name)
-            
+
             # Verify key configurations
-            assert result["DATABASE_URL"] == "postgresql://user:pass@localhost:5432/myapp"
+            assert (
+                result["DATABASE_URL"] == "postgresql://user:pass@localhost:5432/myapp"
+            )
             assert result["APP_NAME"] == "My Web App"
             assert result["APP_DEBUG"] == "false"
             assert result["API_KEY"] == "sk-1234567890abcdef"
             assert result["FEATURE_NEW_UI"] == "true"
             assert result["APP_URL"] == "https://myapp.com"
-            
+
             Path(f.name).unlink()
-    
+
     def test_docker_compose_env(self):
         """Test Docker Compose style environment file."""
         content = """
@@ -832,15 +859,17 @@ NETWORK_SUBNET=172.20.0.0/16
             f.write(content)
             f.flush()
             result = parse_env_file(f.name)
-            
+
             assert result["COMPOSE_PROJECT_NAME"] == "myproject"
             assert result["MYSQL_ROOT_PASSWORD"] == "root-password-with-special-chars!"
             assert result["MYSQL_DATABASE"] == "myapp"
             assert result["APP_PORT"] == "8080"
-            assert result["DATA_VOLUME_PATH"] == "/var/lib/docker/volumes/myproject_data"
-            
+            assert (
+                result["DATA_VOLUME_PATH"] == "/var/lib/docker/volumes/myproject_data"
+            )
+
             Path(f.name).unlink()
-    
+
     def test_microservices_env(self):
         """Test microservices environment configuration."""
         content = """
@@ -881,16 +910,16 @@ JAEGER_SAMPLER_PARAM=1
             f.write(content)
             f.flush()
             result = parse_env_file(f.name)
-            
+
             assert result["CONSUL_HOST"] == "consul.service.consul"
             assert result["RABBITMQ_PASSWORD"] == "guest-password"
             assert result["USER_SERVICE_URL"] == "http://user-service:8080"
             assert result["CIRCUIT_BREAKER_THRESHOLD"] == "5"
             assert result["RATE_LIMIT_REQUESTS"] == "100"
             assert result["JAEGER_SAMPLER_PARAM"] == "1"
-            
+
             Path(f.name).unlink()
-    
+
     def test_development_env(self):
         """Test development environment configuration."""
         content = """
@@ -930,7 +959,7 @@ MOCK_EXTERNAL_SERVICES=true
             f.write(content)
             f.flush()
             result = parse_env_file(f.name)
-            
+
             assert result["NODE_ENV"] == "development"
             assert result["DEBUG"] == "true"
             assert result["DB_HOST"] == "localhost"
@@ -938,12 +967,13 @@ MOCK_EXTERNAL_SERVICES=true
             assert result["API_BASE_URL"] == "http://localhost:3000"
             assert result["HOT_RELOAD"] == "true"
             assert result["TEST_API_KEY"] == "test-api-key-123"
-            
+
             Path(f.name).unlink()
+
 
 class TestPerformanceStress:
     """Stress tests for performance validation."""
-    
+
     def test_massive_file_parsing(self):
         """Test parsing massive file with 10,000 variables."""
         # This tests memory efficiency and parsing speed
@@ -951,15 +981,15 @@ class TestPerformanceStress:
         with tempfile.NamedTemporaryFile(mode="w", suffix=".env", delete=False) as f:
             f.write(content)
             f.flush()
-            
+
             result = parse_env_file(f.name)
             assert len(result) == 10000
             assert result["VAR_0"] == "value_0"
             assert result["VAR_9999"] == "value_9999"
             assert result["VAR_5000"] == "value_5000"
-            
+
             Path(f.name).unlink()
-    
+
     def test_deeply_nested_quotes(self):
         """Test deeply nested quote scenarios."""
         content = 'VAR1="level1 \\"level2 \\"level3\\" back2\\" back1"'
@@ -967,9 +997,9 @@ class TestPerformanceStress:
             f.write(content)
             f.flush()
             result = parse_env_file(f.name)
-            assert result["VAR1"] == 'level1 "level2 \"level3\" back2" back1'
+            assert result["VAR1"] == 'level1 "level2 "level3" back2" back1'
             Path(f.name).unlink()
-    
+
     def test_extremely_long_quoted_value(self):
         """Test extremely long quoted value."""
         long_text = "x" * 50000
@@ -981,7 +1011,7 @@ class TestPerformanceStress:
             assert result["LONG_VAR"] == long_text
             assert len(result["LONG_VAR"]) == 50000
             Path(f.name).unlink()
-    
+
     def test_unicode_mixed_encodings(self):
         """Test mixed Unicode scenarios."""
         content = """
@@ -994,11 +1024,13 @@ EMOJIS=🚀 🎯 ⚡ 🔥 💪
 MATH_SYMBOLS=∑ ∏ ∫ ∂ ∇
 CURRENCY=$ € £ ¥ ₹
 """
-        with tempfile.NamedTemporaryFile(mode="w", suffix=".env", encoding="utf-8", delete=False) as f:
+        with tempfile.NamedTemporaryFile(
+            mode="w", suffix=".env", encoding="utf-8", delete=False
+        ) as f:
             f.write(content)
             f.flush()
             result = parse_env_file(f.name, encoding="utf-8")
-            
+
             assert result["ENGLISH"] == "Hello World"
             assert result["CHINESE"] == "你好世界"
             assert result["JAPANESE"] == "こんにちは世界"
@@ -1007,7 +1039,7 @@ CURRENCY=$ € £ ¥ ₹
             assert result["EMOJIS"] == "🚀 🎯 ⚡ 🔥 💪"
             assert result["MATH_SYMBOLS"] == "∑ ∏ ∫ ∂ ∇"
             assert result["CURRENCY"] == "$ € £ ¥ ₹"
-            
+
             Path(f.name).unlink()
 
 

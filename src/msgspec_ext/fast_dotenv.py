@@ -53,7 +53,11 @@ def parse_env_file(file_path: str, encoding: str | None = "utf-8") -> dict[str, 
 
             # 2. Handle 'export' keyword
             # Check if starts with 'export' followed by space (not a var called 'exporter')
-            if _str_startswith(line, "export") and len(line) > _EXPORT_LEN and line[_EXPORT_LEN].isspace():
+            if (
+                _str_startswith(line, "export")
+                and len(line) > _EXPORT_LEN
+                and line[_EXPORT_LEN].isspace()
+            ):
                 line = line[_EXPORT_LEN:].lstrip()
 
             # 3. Atomic partition
@@ -92,8 +96,7 @@ def parse_env_file(file_path: str, encoding: str | None = "utf-8") -> dict[str, 
                         # Manual replace is faster than codecs.decode('unicode_escape') for this subset
                         if "\\" in val_content:
                             val_content = (
-                                val_content
-                                .replace("\\n", "\n")
+                                val_content.replace("\\n", "\n")
                                 .replace("\\r", "\r")
                                 .replace("\\t", "\t")
                                 .replace('\\"', '"')
