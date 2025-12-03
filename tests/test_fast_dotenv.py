@@ -532,7 +532,7 @@ class TestErrorHandling:
             finally:
                 # Restore permissions for cleanup
                 try:
-                    os.chmod(f.name, 0o644)
+                    os.chmod(f.name, 0o600)  # Owner read/write only
                 except OSError:
                     pass
                 Path(f.name).unlink()
