@@ -42,6 +42,8 @@ uv add msgspec-ext
 
 ## Quick Start
 
+### With BaseSettings (Environment Variables)
+
 ```python
 from msgspec_ext import BaseSettings, EmailStr, HttpUrl, PositiveInt
 
@@ -67,6 +69,34 @@ Set environment variables:
 export NAME="my-app"
 export ADMIN_EMAIL="admin@example.com"
 export API_URL="https://api.example.com"
+```
+
+### With msgspec Structs (Direct Usage)
+
+All validators work directly with msgspec structs for JSON/MessagePack serialization:
+
+```python
+import msgspec
+from msgspec_ext import EmailStr, IPv4Address, ByteSize, PositiveInt, dec_hook, enc_hook
+
+class ServerConfig(msgspec.Struct):
+    host: IPv4Address
+    port: PositiveInt
+    admin_email: EmailStr
+    max_upload: ByteSize
+
+# From JSON (use dec_hook for custom type conversion)
+config = msgspec.json.decode(
+    b'{"host":"192.168.1.100","port":8080,"admin_email":"admin@example.com","max_upload":"50MB"}',
+    type=ServerConfig,
+    dec_hook=dec_hook
+)
+
+print(config.host)  # 192.168.1.100
+print(int(config.max_upload))  # 50000000 (50MB in bytes)
+
+# To JSON (use enc_hook to serialize custom types)
+json_bytes = msgspec.json.encode(config, enc_hook=enc_hook)
 ```
 
 ## Type Support
@@ -107,13 +137,27 @@ class ServerSettings(BaseSettings):
 #### 🌐 Network & Hardware (4 types)
 
 ```python
+import msgspec
 from msgspec_ext import IPv4Address, IPv6Address, IPvAnyAddress, MacAddress
 
+# With BaseSettings
 class NetworkSettings(BaseSettings):
     server_ipv4: IPv4Address  # 192.168.1.1
     server_ipv6: IPv6Address  # 2001:db8::1
     proxy_ip: IPvAnyAddress  # Accepts IPv4 or IPv6
     device_mac: MacAddress  # AA:BB:CC:DD:EE:FF
+
+# Or with msgspec.Struct for API responses
+class Device(msgspec.Struct):
+    name: str
+    ip: IPv4Address
+    mac: MacAddress
+
+device = msgspec.json.decode(
+    b'{"name":"router-01","ip":"192.168.1.1","mac":"AA:BB:CC:DD:EE:FF"}',
+    type=Device,
+    dec_hook=dec_hook
+)
 ```
 
 #### ✉️ String Validators (4 types)
@@ -152,15 +196,29 @@ class PathSettings(BaseSettings):
 #### 💾 Storage & Dates (3 types)
 
 ```python
+import msgspec
 from msgspec_ext import ByteSize, PastDate, FutureDate
 from datetime import date
 
+# With BaseSettings
 class AppSettings(BaseSettings):
     max_upload: ByteSize  # Parse "10MB", "1GB", etc.
     cache_size: ByteSize  # Supports KB, MB, GB, KiB, MiB, GiB
-
     founding_date: PastDate  # Must be before today
     launch_date: FutureDate  # Must be after today
+
+# Or with msgspec.Struct for configuration files
+class StorageConfig(msgspec.Struct):
+    max_file_size: ByteSize
+    cache_limit: ByteSize
+    cleanup_after: int  # days
+
+config = msgspec.json.decode(
+    b'{"max_file_size":"100MB","cache_limit":"5GB","cleanup_after":30}',
+    type=StorageConfig,
+    dec_hook=dec_hook
+)
+print(int(config.max_file_size))  # 100000000
 ```
 
 #### 🎯 Constrained Strings (2 types)
@@ -189,6 +247,83 @@ username = ConStr("alice", min_length=3, max_length=20, pattern=r"^[a-z0-9]+$")
 | **Constrained** | `ConStr` |
 
 See `examples/06_validators.py` and `examples/07_advanced_validators.py` for complete usage examples.
+
+## Use Cases
+
+### API Request/Response Validation
+
+```python
+import msgspec
+from msgspec_ext import EmailStr, HttpUrl, PositiveInt, ByteSize, dec_hook, enc_hook
+
+class CreateUserRequest(msgspec.Struct):
+    email: EmailStr
+    age: PositiveInt
+    website: HttpUrl
+    max_storage: ByteSize
+
+class UserResponse(msgspec.Struct):
+    id: int
+    email: EmailStr
+    website: HttpUrl
+
+# Validate incoming JSON
+request = msgspec.json.decode(
+    b'{"email":"user@example.com","age":25,"website":"https://example.com","max_storage":"1GB"}',
+    type=CreateUserRequest,
+    dec_hook=dec_hook
+)
+
+# Serialize response
+response = UserResponse(id=1, email=request.email, website=request.website)
+json_bytes = msgspec.json.encode(response, enc_hook=enc_hook)
+```
+
+### Configuration Files with Validation
+
+```python
+import msgspec
+from msgspec_ext import IPv4Address, PositiveInt, PostgresDsn, ByteSize, dec_hook
+
+class ServerConfig(msgspec.Struct):
+    host: IPv4Address
+    port: PositiveInt
+    database_url: PostgresDsn
+    max_upload: ByteSize
+    workers: PositiveInt = 4
+
+# Load from JSON config file
+with open("config.json", "rb") as f:
+    config = msgspec.json.decode(f.read(), type=ServerConfig, dec_hook=dec_hook)
+
+print(f"Server: {config.host}:{config.port}")
+print(f"Max upload: {int(config.max_upload)} bytes")
+```
+
+### Message Queue Data Validation
+
+```python
+import msgspec
+from msgspec_ext import EmailStr, IPvAnyAddress, FutureDate, dec_hook, enc_hook
+
+class ScheduledTask(msgspec.Struct):
+    task_id: str
+    notify_email: EmailStr
+    target_server: IPvAnyAddress
+    execute_at: FutureDate
+
+# Serialize for queue (MessagePack is faster than JSON)
+task = ScheduledTask(
+    task_id="task-123",
+    notify_email=EmailStr("admin@example.com"),
+    target_server=IPvAnyAddress("192.168.1.100"),
+    execute_at=FutureDate("2025-12-31")
+)
+msg_bytes = msgspec.msgpack.encode(task, enc_hook=enc_hook)
+
+# Deserialize from queue
+received_task = msgspec.msgpack.decode(msg_bytes, type=ScheduledTask, dec_hook=dec_hook)
+```
 
 ## Advanced Usage
 

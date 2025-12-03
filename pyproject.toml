@@ -117,6 +117,7 @@ ignore = [
   "TID252",  # Allow relative imports
   "UP007",   # Allow `from typing import Optional` instead of `X | None`
   "UP035",   # Allow `from typing import Sequence` instead of `Sequence[X]`
+  "UP038",   # Allow isinstance with tuple instead of `X | Y`
   "PLR0911", # Allow more than 6 return statements
   "PLR0913",
   "B904",    # Allow raise in except without from
@@ -148,3 +149,4 @@ ban-relative-imports = "all"
 "examples/**/*" = ["D", "S101", "S104", "S105", "T201", "F401"]
 "benchmark.py" = ["D", "S101", "S105", "T201", "PLC0415", "F841", "C901", "PLR0915"]
 "benchmark/**/*" = ["D", "S101", "S104", "S105", "T201", "F401", "S603", "S607", "PLC0415", "ARG001"]
+"test_readme_examples.py" = ["D", "S101", "T201", "PLR2004"]

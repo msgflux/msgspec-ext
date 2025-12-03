@@ -1,6 +1,6 @@
 import msgspec
 
-from .settings import BaseSettings, SettingsConfigDict
+from .settings import BaseSettings, SettingsConfigDict, _dec_hook, _enc_hook
 from .types import (
     AnyUrl,
     ByteSize,
@@ -33,6 +33,10 @@ from .types import (
 Raw = msgspec.Raw
 UNSET = msgspec.UNSET
 
+# Re-export hooks with public names
+dec_hook = _dec_hook
+enc_hook = _enc_hook
+
 __all__ = [
     "UNSET",
     "AnyUrl",
@@ -47,7 +51,6 @@ __all__ = [
     "IPv4Address",
     "IPv6Address",
     "IPvAnyAddress",
-    "Json",
     "MacAddress",
     "NegativeFloat",
     "NegativeInt",
@@ -64,4 +67,6 @@ __all__ = [
     "RedisDsn",
     "SecretStr",
     "SettingsConfigDict",
+    "dec_hook",
+    "enc_hook",
 ]
