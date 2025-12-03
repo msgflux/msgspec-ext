@@ -24,6 +24,7 @@
 - ✅ **7x faster than pydantic-settings** - High performance built on msgspec
 - ✅ **Drop-in API compatibility** - Familiar interface, easy migration from pydantic-settings
 - ✅ **Type-safe** - Full type hints and validation
+- ✅ **17+ built-in validators** - Email, URLs, numeric constraints, payment cards, paths, and more
 - ✅ **.env support** - Fast built-in .env parser (no dependencies)
 - ✅ **Nested settings** - Support for complex configuration structures
 - ✅ **Zero dependencies** - Only msgspec required
@@ -98,6 +99,100 @@ settings = AppSettings()
 ```
 
 ## Advanced Usage
+
+### Field Validators
+
+msgspec-ext provides 17+ built-in validator types for common use cases:
+
+#### Numeric Constraints
+
+```python
+from msgspec_ext import BaseSettings, PositiveInt, NonNegativeInt
+
+class ServerSettings(BaseSettings):
+    port: PositiveInt  # Must be > 0
+    max_connections: PositiveInt
+    retry_count: NonNegativeInt  # Can be 0
+```
+
+**Available numeric types:**
+- `PositiveInt`, `NegativeInt`, `NonNegativeInt`, `NonPositiveInt`
+- `PositiveFloat`, `NegativeFloat`, `NonNegativeFloat`, `NonPositiveFloat`
+
+#### String Validators
+
+```python
+from msgspec_ext import BaseSettings, EmailStr, HttpUrl, SecretStr
+
+class AppSettings(BaseSettings):
+    admin_email: EmailStr  # RFC 5321 validation
+    api_url: HttpUrl  # HTTP/HTTPS only
+    api_key: SecretStr  # Masked in logs/output
+```
+
+**Available string types:**
+- `EmailStr` - Email validation (RFC 5321)
+- `HttpUrl` - HTTP/HTTPS URLs only
+- `AnyUrl` - Any valid URL scheme
+- `SecretStr` - Masks sensitive data in output
+
+#### Database & Cache Validators
+
+```python
+from msgspec_ext import BaseSettings, PostgresDsn, RedisDsn
+
+class ConnectionSettings(BaseSettings):
+    database_url: PostgresDsn  # postgresql://user:pass@host/db
+    cache_url: RedisDsn  # redis://localhost:6379
+```
+
+#### Payment Card Validation
+
+```python
+from msgspec_ext import BaseSettings, PaymentCardNumber
+
+class PaymentSettings(BaseSettings):
+    card: PaymentCardNumber  # Luhn algorithm + masking
+```
+
+**Features:**
+- Validates using Luhn algorithm
+- Automatically strips spaces/dashes
+- Masks card number in repr (shows last 4 digits only)
+
+#### Path Validators
+
+```python
+from msgspec_ext import BaseSettings, FilePath, DirectoryPath
+
+class PathSettings(BaseSettings):
+    config_file: FilePath  # Must exist and be a file
+    data_dir: DirectoryPath  # Must exist and be a directory
+```
+
+**Complete validator list:**
+
+| Validator | Description |
+|-----------|-------------|
+| `PositiveInt` | Integer > 0 |
+| `NegativeInt` | Integer < 0 |
+| `NonNegativeInt` | Integer ≥ 0 |
+| `NonPositiveInt` | Integer ≤ 0 |
+| `PositiveFloat` | Float > 0.0 |
+| `NegativeFloat` | Float < 0.0 |
+| `NonNegativeFloat` | Float ≥ 0.0 |
+| `NonPositiveFloat` | Float ≤ 0.0 |
+| `EmailStr` | Email address (RFC 5321) |
+| `HttpUrl` | HTTP/HTTPS URL |
+| `AnyUrl` | Any valid URL |
+| `SecretStr` | Masked sensitive data |
+| `PostgresDsn` | PostgreSQL connection string |
+| `RedisDsn` | Redis connection string |
+| `PaymentCardNumber` | Credit card with Luhn validation |
+| `FilePath` | Existing file path |
+| `DirectoryPath` | Existing directory path |
+
+See `examples/06_validators.py` for complete examples.
 
 ### Nested Configuration
 
