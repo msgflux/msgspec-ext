@@ -1,15 +1,24 @@
 #!/usr/bin/env python3
-"""Benchmark cold start vs warm performance for both libraries.
+"""Benchmark cold start vs warm performance for msgspec-ext and pydantic.
 
-This benchmark compares:
-1. Cold start: Complete process initialization (realistic for serverless/CLI)
-2. Warm: Cached in-process loading (realistic for long-running servers)
+This benchmark is designed to provide a realistic comparison between `msgspec-ext`
+and `pydantic-settings` in two common scenarios:
 
-Methodology improvements:
-- Multiple runs (5-10) for statistical significance
-- Proper warmup for warm benchmarks (50 iterations)
-- Higher iteration count for warm (1000 iterations)
-- Statistical analysis (mean, median, stdev)
+1.  **Cold Start**: This simulates use cases like serverless functions (e.g., AWS
+    Lambda) or command-line tools, where the Python process starts, loads the
+    settings, and then exits. We measure the full time, including process
+    startup, library import, and settings object instantiation. This is
+    achieved by running the benchmark code in a separate `python` subprocess
+    for each run.
+
+2.  **Warm (Cached) Start**: This simulates long-running applications like a web
+    server, where settings might be instantiated multiple times within the same
+    process. The benchmark measures the speed of creating new settings objects
+    after the initial import and caching have already occurred. This is run
+    in-process.
+
+To ensure statistical significance, each benchmark is run multiple times, and
+the results (mean, median, standard deviation) are reported.
 """
 
 import os
@@ -17,7 +26,14 @@ import statistics
 import subprocess
 import time
 
-ENV_CONTENT = """APP_NAME=test
+# Benchmark parameters
+COLD_RUNS = 5
+WARM_RUNS = 10
+WARM_ITERATIONS = 1000
+WARM_WARMUP = 50
+
+ENV_FILE = ".env.benchmark"
+ENV_CONTENT = f"""APP_NAME=test
 DEBUG=true
 API_KEY=key123
 MAX_CONNECTIONS=100
@@ -29,14 +45,14 @@ REDIS__PORT=6379
 """
 
 
-def benchmark_msgspec_cold(runs=5):
+def benchmark_msgspec_cold(runs=COLD_RUNS):
     """Measure msgspec cold start with multiple runs."""
-    code = """
+    code = f"""
 import time
 from msgspec_ext import BaseSettings, SettingsConfigDict
 
 class TestSettings(BaseSettings):
-    model_config = SettingsConfigDict(env_file=".env.test")
+    model_config = SettingsConfigDict(env_file="{ENV_FILE}")
     app_name: str
     debug: bool = False
     api_key: str = "default"
@@ -52,36 +68,29 @@ TestSettings()
 end = time.perf_counter()
 print((end - start) * 1000)
 """
-    with open(".env.test", "w") as f:
-        f.write(ENV_CONTENT)
-
     times = []
-    try:
-        for _ in range(runs):
-            result = subprocess.run(
-                ["uv", "run", "python", "-c", code],
-                capture_output=True,
-                text=True,
-                check=True,
-            )
-            times.append(float(result.stdout.strip()))
+    for _ in range(runs):
+        result = subprocess.run(
+            ["uv", "run", "python", "-c", code],
+            capture_output=True,
+            text=True,
+            check=True,
+        )
+        times.append(float(result.stdout.strip()))
 
-        return {
-            "mean": statistics.mean(times),
-            "median": statistics.median(times),
-            "stdev": statistics.stdev(times) if len(times) > 1 else 0.0,
-            "min": min(times),
-            "max": max(times),
-            "raw": times,
-        }
-    finally:
-        if os.path.exists(".env.test"):
-            os.unlink(".env.test")
+    return {
+        "mean": statistics.mean(times),
+        "median": statistics.median(times),
+        "stdev": statistics.stdev(times) if len(times) > 1 else 0.0,
+        "min": min(times),
+        "max": max(times),
+        "raw": times,
+    }
 
 
-def benchmark_pydantic_cold(runs=5):
+def benchmark_pydantic_cold(runs=COLD_RUNS):
     """Measure pydantic cold start with multiple runs."""
-    code = """
+    code = f"""
 import time
 from pydantic_settings import BaseSettings
 
@@ -97,46 +106,41 @@ class TestSettings(BaseSettings):
     redis__port: int = 6379
 
     class Config:
-        env_file = ".env.test"
+        env_file = "{ENV_FILE}"
 
 start = time.perf_counter()
 TestSettings()
 end = time.perf_counter()
 print((end - start) * 1000)
 """
-    with open(".env.test", "w") as f:
-        f.write(ENV_CONTENT)
-
     times = []
-    try:
-        for _ in range(runs):
-            result = subprocess.run(
-                ["uv", "run", "--with", "pydantic-settings", "python", "-c", code],
-                capture_output=True,
-                text=True,
-                check=True,
-            )
-            times.append(float(result.stdout.strip()))
+    for _ in range(runs):
+        result = subprocess.run(
+            ["uv", "run", "--with", "pydantic-settings", "python", "-c", code],
+            capture_output=True,
+            text=True,
+            check=True,
+        )
+        times.append(float(result.stdout.strip()))
 
-        return {
-            "mean": statistics.mean(times),
-            "median": statistics.median(times),
-            "stdev": statistics.stdev(times) if len(times) > 1 else 0.0,
-            "min": min(times),
-            "max": max(times),
-            "raw": times,
-        }
-    finally:
-        if os.path.exists(".env.test"):
-            os.unlink(".env.test")
+    return {
+        "mean": statistics.mean(times),
+        "median": statistics.median(times),
+        "stdev": statistics.stdev(times) if len(times) > 1 else 0.0,
+        "min": min(times),
+        "max": max(times),
+        "raw": times,
+    }
 
 
-def benchmark_msgspec_warm(iterations=1000, warmup=50, runs=10):
+def benchmark_msgspec_warm(
+    iterations=WARM_ITERATIONS, warmup=WARM_WARMUP, runs=WARM_RUNS
+):
     """Measure msgspec warm (cached) with proper warmup and multiple runs."""
     from msgspec_ext import BaseSettings, SettingsConfigDict
 
     class TestSettings(BaseSettings):
-        model_config = SettingsConfigDict(env_file=".env.warm")
+        model_config = SettingsConfigDict(env_file=ENV_FILE)
         app_name: str
         debug: bool = False
         api_key: str = "default"
@@ -147,103 +151,82 @@ def benchmark_msgspec_warm(iterations=1000, warmup=50, runs=10):
         redis__host: str = "localhost"
         redis__port: int = 6379
 
-    with open(".env.warm", "w") as f:
-        f.write(ENV_CONTENT)
-
-    try:
-        # Warmup
-        for _ in range(warmup):
-            TestSettings()
-
-        # Multiple runs
-        run_times = []
-        for _ in range(runs):
-            start = time.perf_counter()
-            for _ in range(iterations):
-                TestSettings()
-            end = time.perf_counter()
-            run_times.append((end - start) / iterations * 1000)
-
-        return {
-            "mean": statistics.mean(run_times),
-            "median": statistics.median(run_times),
-            "stdev": statistics.stdev(run_times) if len(run_times) > 1 else 0.0,
-            "min": min(run_times),
-            "max": max(run_times),
-            "raw": run_times,
-        }
-    finally:
-        os.unlink(".env.warm")
-
-
-def benchmark_pydantic_warm(iterations=1000, warmup=50, runs=10):
-    """Measure pydantic warm with proper warmup and multiple runs."""
-    code = f"""
-import time
-import statistics
-from pydantic_settings import BaseSettings
-
-ENV = '''{ENV_CONTENT}'''
-
-with open('.env.pwarm', 'w') as f:
-    f.write(ENV)
-
-class TestSettings(BaseSettings):
-    app_name: str
-    debug: bool = False
-    api_key: str = "default"
-    max_connections: int = 100
-    timeout: float = 30.0
-    database__host: str = "localhost"
-    database__port: int = 5432
-    redis__host: str = "localhost"
-    redis__port: int = 6379
-
-    class Config:
-        env_file = ".env.pwarm"
-
-# Warmup
-for _ in range({warmup}):
-    TestSettings()
-
-# Multiple runs
-run_times = []
-for _ in range({runs}):
-    start = time.perf_counter()
-    for _ in range({iterations}):
+    # Warmup
+    for _ in range(warmup):
         TestSettings()
-    end = time.perf_counter()
-    run_times.append((end - start) / {iterations} * 1000)
 
-# Output statistics
-print(statistics.mean(run_times))
-print(statistics.median(run_times))
-print(statistics.stdev(run_times) if len(run_times) > 1 else 0.0)
-print(min(run_times))
-print(max(run_times))
-"""
-    try:
-        result = subprocess.run(
-            ["uv", "run", "--with", "pydantic-settings", "python", "-c", code],
-            capture_output=True,
-            text=True,
-            check=True,
-        )
-        lines = result.stdout.strip().split("\n")
-        return {
-            "mean": float(lines[0]),
-            "median": float(lines[1]),
-            "stdev": float(lines[2]),
-            "min": float(lines[3]),
-            "max": float(lines[4]),
-        }
-    finally:
-        if os.path.exists(".env.pwarm"):
-            os.unlink(".env.pwarm")
+    # Multiple runs
+    run_times = []
+    for _ in range(runs):
+        start = time.perf_counter()
+        for _ in range(iterations):
+            TestSettings()
+        end = time.perf_counter()
+        run_times.append((end - start) / iterations * 1000)
+
+    return {
+        "mean": statistics.mean(run_times),
+        "median": statistics.median(run_times),
+        "stdev": statistics.stdev(run_times) if len(run_times) > 1 else 0.0,
+        "min": min(run_times),
+        "max": max(run_times),
+        "raw": run_times,
+    }
+
+
+def benchmark_pydantic_warm(
+    iterations=WARM_ITERATIONS, warmup=WARM_WARMUP, runs=WARM_RUNS
+):
+    """Measure pydantic warm with proper warmup and multiple runs."""
+    from pydantic_settings import BaseSettings
+
+    class TestSettings(BaseSettings):
+        app_name: str
+        debug: bool = False
+        api_key: str = "default"
+        max_connections: int = 100
+        timeout: float = 30.0
+        database__host: str = "localhost"
+        database__port: int = 5432
+        redis__host: str = "localhost"
+        redis__port: int = 6379
+
+        class Config:
+            env_file = ENV_FILE
+
+    # Warmup
+    for _ in range(warmup):
+        TestSettings()
+
+    # Multiple runs
+    run_times = []
+    for _ in range(runs):
+        start = time.perf_counter()
+        for _ in range(iterations):
+            TestSettings()
+        end = time.perf_counter()
+        run_times.append((end - start) / iterations * 1000)
+
+    return {
+        "mean": statistics.mean(run_times),
+        "median": statistics.median(run_times),
+        "stdev": statistics.stdev(run_times) if len(run_times) > 1 else 0.0,
+        "min": min(run_times),
+        "max": max(run_times),
+        "raw": run_times,
+    }
 
 
 def print_stats(label, stats, indent="  "):
-    """Print statistics in a formatted way."""
+    """Print statistics in a readable, formatted way.
+
+    Args:
+        label: A label to print before the stats.
+        stats: A dictionary of statistics (mean, median, stdev, min, max).
+        indent: The string to use for indentation.
+    """
+    if label:
+        print(label)
     print(f"{indent}Mean:     {stats['mean']:>8.3f}ms")
     print(f"{indent}Median:   {stats['median']:>8.3f}ms")
     print(f"{indent}Std Dev:  {stats['stdev']:>8.3f}ms")
@@ -257,51 +240,60 @@ if __name__ == "__main__":
     print("=" * 80)
     print()
     print("Configuration:")
-    print("  Cold: 5 process spawns (measures initialization overhead)")
-    print("  Warm: 10 runs x 1000 iterations with 50 iteration warmup")
+    print(f"  Cold: {COLD_RUNS} process spawns (measures initialization overhead)")
+    print(
+        f"  Warm: {WARM_RUNS} runs x {WARM_ITERATIONS} "
+        f"iterations with {WARM_WARMUP} iteration warmup"
+    )
     print()
 
-    # Cold benchmarks
-    print("Running cold start benchmarks...")
-    print("  msgspec-ext...", end=" ", flush=True)
-    msgspec_cold = benchmark_msgspec_cold(runs=5)
-    print("✓")
+    # Create the .env file for benchmarks
+    with open(ENV_FILE, "w") as f:
+        f.write(ENV_CONTENT)
 
-    print("  pydantic-settings...", end=" ", flush=True)
-    pydantic_cold = benchmark_pydantic_cold(runs=5)
-    print("✓")
+    try:
+        # Cold benchmarks
+        print("Running cold start benchmarks...")
+        print("  msgspec-ext...", end=" ", flush=True)
+        msgspec_cold = benchmark_msgspec_cold()
+        print("✓")
 
-    # Warm benchmarks
-    print("Running warm (cached) benchmarks...")
-    print("  msgspec-ext...", end=" ", flush=True)
-    msgspec_warm = benchmark_msgspec_warm(iterations=1000, warmup=50, runs=10)
-    print("✓")
+        print("  pydantic-settings...", end=" ", flush=True)
+        pydantic_cold = benchmark_pydantic_cold()
+        print("✓")
 
-    print("  pydantic-settings...", end=" ", flush=True)
-    pydantic_warm = benchmark_pydantic_warm(iterations=1000, warmup=50, runs=10)
-    print("✓")
+        # Warm benchmarks
+        print("Running warm (cached) benchmarks...")
+        print("  msgspec-ext...", end=" ", flush=True)
+        msgspec_warm = benchmark_msgspec_warm()
+        print("✓")
+
+        print("  pydantic-settings...", end=" ", flush=True)
+        pydantic_warm = benchmark_pydantic_warm()
+        print("✓")
+
+    finally:
+        # Clean up the .env file
+        if os.path.exists(ENV_FILE):
+            os.unlink(ENV_FILE)
 
     print()
     print("=" * 80)
     print("RESULTS - Cold Start (Process Initialization)")
     print("=" * 80)
     print()
-    print("msgspec-ext:")
-    print_stats("", msgspec_cold)
+    print_stats("msgspec-ext:", msgspec_cold)
     print()
-    print("pydantic-settings:")
-    print_stats("", pydantic_cold)
+    print_stats("pydantic-settings:", pydantic_cold)
     print()
 
     print("=" * 80)
     print("RESULTS - Warm (Cached, Long-Running Process)")
     print("=" * 80)
     print()
-    print("msgspec-ext:")
-    print_stats("", msgspec_warm)
+    print_stats("msgspec-ext:", msgspec_warm)
     print()
-    print("pydantic-settings:")
-    print_stats("", pydantic_warm)
+    print_stats("pydantic-settings:", pydantic_warm)
     print()
 
     print("=" * 80)
