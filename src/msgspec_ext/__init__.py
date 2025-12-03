@@ -13,7 +13,6 @@ from .types import (
     IPv4Address,
     IPv6Address,
     IPvAnyAddress,
-    Json,
     MacAddress,
     NegativeFloat,
     NegativeInt,

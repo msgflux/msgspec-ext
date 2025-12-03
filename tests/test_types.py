@@ -16,7 +16,6 @@ from msgspec_ext.types import (
     IPv4Address,
     IPv6Address,
     IPvAnyAddress,
-    Json,
     MacAddress,
     NegativeFloat,
     NegativeInt,
@@ -834,74 +833,6 @@ class TestIPvAnyAddress:
         """Should reject non-string inputs."""
         with pytest.raises(TypeError):
             IPvAnyAddress(123)  # type: ignore
-
-
-# ==============================================================================
-# Json Tests
-# ==============================================================================
-
-
-class TestJson:
-    """Tests for Json type."""
-
-    def test_valid_json_object(self):
-        """Should accept valid JSON objects."""
-        valid_json = [
-            '{"key": "value"}',
-            '{"number": 123}',
-            '{"array": [1, 2, 3]}',
-            '{"nested": {"key": "value"}}',
-        ]
-        for json_str in valid_json:
-            result = Json(json_str)
-            assert str(result) == json_str
-
-    def test_valid_json_array(self):
-        """Should accept valid JSON arrays."""
-        valid_json = [
-            "[1, 2, 3]",
-            '["a", "b", "c"]',
-            '[{"key": "value"}]',
-        ]
-        for json_str in valid_json:
-            result = Json(json_str)
-            assert str(result) == json_str
-
-    def test_valid_json_primitives(self):
-        """Should accept JSON primitives."""
-        valid_json = [
-            '"string"',
-            "123",
-            "true",
-            "false",
-            "null",
-        ]
-        for json_str in valid_json:
-            result = Json(json_str)
-            assert str(result) == json_str
-
-    def test_json_strips_whitespace(self):
-        """Should strip leading/trailing whitespace."""
-        result = Json('  {"key": "value"}  ')
-        assert str(result) == '{"key": "value"}'
-
-    def test_reject_invalid_json(self):
-        """Should reject invalid JSON."""
-        invalid_json = [
-            "{key: value}",  # Unquoted keys
-            "{'key': 'value'}",  # Single quotes
-            "{",  # Incomplete
-            "not json",
-            "",
-        ]
-        for json_str in invalid_json:
-            with pytest.raises(ValueError, match="Invalid JSON"):
-                Json(json_str)
-
-    def test_json_type_error(self):
-        """Should reject non-string inputs."""
-        with pytest.raises(TypeError):
-            Json(123)  # type: ignore
 
 
 # ==============================================================================

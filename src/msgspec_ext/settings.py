@@ -17,7 +17,6 @@ from msgspec_ext.types import (
     IPv4Address,
     IPv6Address,
     IPvAnyAddress,
-    Json,
     MacAddress,
     PastDate,
     PaymentCardNumber,
@@ -58,7 +57,6 @@ def _dec_hook(typ: type, obj: Any) -> Any:
         IPv4Address,
         IPv6Address,
         IPvAnyAddress,
-        Json,
         MacAddress,
     )
     if typ in custom_types:

@@ -13,7 +13,6 @@ Example:
 """
 
 import ipaddress
-import json
 import os
 import re
 from datetime import date, datetime
@@ -33,7 +32,6 @@ __all__ = [
     "IPv4Address",
     "IPv6Address",
     "IPvAnyAddress",
-    "Json",
     "MacAddress",
     "NegativeFloat",
     "NegativeInt",
@@ -626,42 +624,6 @@ class _IPvAnyAddress(str):
 # ==============================================================================
 
 
-class _Json(str):
-    """JSON string validation.
-
-    Validates that a string contains valid JSON.
-    """
-
-    __slots__ = ()
-
-    def __new__(cls, value: str) -> "_Json":
-        """Create and validate JSON string.
-
-        Args:
-            value: JSON string
-
-        Returns:
-            Validated JSON string
-
-        Raises:
-            ValueError: If JSON is invalid
-        """
-        if not isinstance(value, str):
-            raise TypeError(f"Expected str, got {type(value).__name__}")
-
-        value = value.strip()
-
-        try:
-            # Validate by parsing
-            json.loads(value)
-            return str.__new__(cls, value)
-        except json.JSONDecodeError as e:
-            raise ValueError(f"Invalid JSON: {e}") from e
-
-    def __repr__(self) -> str:
-        return f"Json({str.__repr__(self)})"
-
-
 class _MacAddress(str):
     """MAC address validation.
 
@@ -931,7 +893,6 @@ DirectoryPath = _DirectoryPath
 IPv4Address = _IPv4Address
 IPv6Address = _IPv6Address
 IPvAnyAddress = _IPvAnyAddress
-Json = _Json
 MacAddress = _MacAddress
 ConStr = _ConStr
 ByteSize = _ByteSize
