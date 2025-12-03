@@ -5,7 +5,7 @@ build-backend = "hatchling.build"
 [project]
 name = "msgspec-ext"
 dynamic = ["version"]
-description = "Fast settings management using msgspec"
+description = "High-performance settings management and validation library extending msgspec"
 readme = "README.md"
 license = "MIT"
 authors = [
@@ -15,10 +15,24 @@ requires-python = ">=3.10"
 dependencies = [
     "msgspec>=0.19.0",
 ]
+keywords = [
+    "msgspec",
+    "settings",
+    "configuration",
+    "validation",
+    "validators",
+    "pydantic",
+    "environment-variables",
+    "dotenv",
+    "type-validation",
+    "fast",
+    "performance"
+]
 classifiers = [
   "Development Status :: 4 - Beta",
   "Intended Audience :: Developers",
   "Intended Audience :: Science/Research",
+  "Intended Audience :: System Administrators",
   "License :: OSI Approved :: MIT License",
   "Operating System :: MacOS :: MacOS X",
   "Operating System :: POSIX :: Linux",
@@ -29,7 +43,9 @@ classifiers = [
   "Programming Language :: Python :: 3.12",
   "Programming Language :: Python :: 3.13",
   "Topic :: Software Development :: Libraries",
-  "Topic :: Software Development :: Libraries :: Python Modules"
+  "Topic :: Software Development :: Libraries :: Python Modules",
+  "Topic :: System :: Systems Administration",
+  "Typing :: Typed"
 ]
 
 [tool.hatch.version]
