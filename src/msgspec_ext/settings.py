@@ -121,7 +121,9 @@ def _enc_hook(obj: Any) -> Any:
         return obj.isoformat()
 
     # If we don't handle it, let msgspec raise an error
-    raise NotImplementedError(f"Encoding objects of type {type(obj).__name__} is unsupported")
+    raise NotImplementedError(
+        f"Encoding objects of type {type(obj).__name__} is unsupported"
+    )
 
 
 class SettingsConfigDict(msgspec.Struct):
