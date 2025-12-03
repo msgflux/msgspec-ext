@@ -212,11 +212,12 @@ def main():  # noqa: PLR0915
     print("\n4. Secret Strings (Masked in Output)")
     print("-" * 60)
 
+    # codeql[py/clear-text-logging-sensitive-data] - example code with fake credentials
     os.environ.update(
         {
-            "SECRET_API_KEY": "sk_live_1234567890abcdef",  # nosec - example fake key
-            "SECRET_DATABASE_PASSWORD": "super-secret-password-123",  # nosec - example fake password
-            "SECRET_JWT_SECRET": "jwt-signing-key-xyz",  # nosec - example fake secret
+            "SECRET_API_KEY": "sk_live_1234567890abcdef",  # example fake key
+            "SECRET_DATABASE_PASSWORD": "super-secret-password-123",  # example fake password
+            "SECRET_JWT_SECRET": "jwt-signing-key-xyz",  # example fake secret
         }
     )
 
@@ -301,13 +302,14 @@ def main():  # noqa: PLR0915
     print("-" * 60)
 
     # Set environment variables
+    # codeql[py/clear-text-logging-sensitive-data] - example code with fake credentials
     os.environ.update(
         {
             "ADMIN_EMAIL": "admin@myapp.com",
             "API_URL": "https://api.myapp.com",
             "FRONTEND_URL": "https://myapp.com",
-            "API_KEY": "sk_prod_secret_key_123",  # nosec - example fake key
-            "DB_PASSWORD": "postgres_password_456",  # nosec - example fake password
+            "API_KEY": "sk_prod_secret_key_123",  # example fake key
+            "DB_PASSWORD": "postgres_password_456",  # example fake password
             "PORT": "8000",
             "MAX_WORKERS": "4",
             "RETRY_COUNT": "3",
