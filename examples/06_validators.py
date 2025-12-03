@@ -8,6 +8,7 @@ This example shows how to use msgspec-ext's built-in validators:
 """
 
 import os
+import tempfile
 
 from msgspec_ext import (
     AnyUrl,
@@ -132,7 +133,7 @@ class AppSettings(BaseSettings):
     debug: bool = False
 
 
-def main():
+def main():  # noqa: PLR0915
     print("=" * 60)
     print("msgspec-ext Validators Demo")
     print("=" * 60)
@@ -141,10 +142,12 @@ def main():
     print("\n1. Email Validation")
     print("-" * 60)
 
-    os.environ.update({
-        "EMAIL_ADMIN_EMAIL": "admin@example.com",
-        "EMAIL_SUPPORT_EMAIL": "support@company.org",
-    })
+    os.environ.update(
+        {
+            "EMAIL_ADMIN_EMAIL": "admin@example.com",
+            "EMAIL_SUPPORT_EMAIL": "support@company.org",
+        }
+    )
 
     email_settings = EmailSettings()
     print(f"Admin Email: {email_settings.admin_email}")
@@ -153,7 +156,7 @@ def main():
 
     # Try invalid email (will raise ValueError)
     try:
-        invalid = EmailStr("not-an-email")
+        EmailStr("not-an-email")
     except ValueError as e:
         print(f"✓ Email validation works: {e}")
 
@@ -161,11 +164,13 @@ def main():
     print("\n2. URL Validation")
     print("-" * 60)
 
-    os.environ.update({
-        "API_BASE_URL": "https://api.example.com",
-        "API_WEBHOOK_URL": "https://webhook.example.com/events",
-        "API_DOCS_URL": "https://docs.example.com",
-    })
+    os.environ.update(
+        {
+            "API_BASE_URL": "https://api.example.com",
+            "API_WEBHOOK_URL": "https://webhook.example.com/events",
+            "API_DOCS_URL": "https://docs.example.com",
+        }
+    )
 
     api_settings = APISettings()
     print(f"Base URL: {api_settings.base_url}")
@@ -174,13 +179,13 @@ def main():
 
     # Try invalid URL (will raise ValueError)
     try:
-        invalid_url = HttpUrl("not a url")
+        HttpUrl("not a url")
     except ValueError as e:
         print(f"✓ URL validation works: {e}")
 
     # Try non-HTTP scheme (will raise ValueError)
     try:
-        invalid_scheme = HttpUrl("ftp://example.com")
+        HttpUrl("ftp://example.com")
     except ValueError as e:
         print(f"✓ HTTP scheme validation works: {e}")
 
@@ -188,12 +193,14 @@ def main():
     print("\n3. Numeric Constraints")
     print("-" * 60)
 
-    os.environ.update({
-        "DB_PORT": "5432",
-        "DB_MAX_CONNECTIONS": "100",
-        "DB_MIN_CONNECTIONS": "0",
-        "DB_TIMEOUT": "30.5",
-    })
+    os.environ.update(
+        {
+            "DB_PORT": "5432",
+            "DB_MAX_CONNECTIONS": "100",
+            "DB_MIN_CONNECTIONS": "0",
+            "DB_TIMEOUT": "30.5",
+        }
+    )
 
     db_settings = DatabaseSettings()
     print(f"Port: {db_settings.port} (PositiveInt)")
@@ -205,11 +212,13 @@ def main():
     print("\n4. Secret Strings (Masked in Output)")
     print("-" * 60)
 
-    os.environ.update({
-        "SECRET_API_KEY": "sk_live_1234567890abcdef",
-        "SECRET_DATABASE_PASSWORD": "super-secret-password-123",
-        "SECRET_JWT_SECRET": "jwt-signing-key-xyz",
-    })
+    os.environ.update(
+        {
+            "SECRET_API_KEY": "sk_live_1234567890abcdef",  # nosec - example fake key
+            "SECRET_DATABASE_PASSWORD": "super-secret-password-123",  # nosec - example fake password
+            "SECRET_JWT_SECRET": "jwt-signing-key-xyz",  # nosec - example fake secret
+        }
+    )
 
     secret_settings = SecretSettings()
     print(f"API Key: {secret_settings.api_key}")  # Masked
@@ -221,10 +230,12 @@ def main():
     print("\n5. Database & Cache DSN Validation")
     print("-" * 60)
 
-    os.environ.update({
-        "CONN_POSTGRES_URL": "postgresql://user:pass@localhost:5432/mydb",
-        "CONN_REDIS_URL": "redis://localhost:6379/0",
-    })
+    os.environ.update(
+        {
+            "CONN_POSTGRES_URL": "postgresql://user:pass@localhost:5432/mydb",
+            "CONN_REDIS_URL": "redis://localhost:6379/0",
+        }
+    )
 
     conn_settings = ConnectionSettings()
     print(f"PostgreSQL: {conn_settings.postgres_url}")
@@ -232,7 +243,7 @@ def main():
 
     # Try invalid DSN
     try:
-        invalid_dsn = PostgresDsn("mysql://localhost/db")
+        PostgresDsn("mysql://localhost/db")
     except ValueError as e:
         print(f"✓ PostgreSQL DSN validation works: {e}")
 
@@ -240,17 +251,19 @@ def main():
     print("\n6. Payment Card Validation (Luhn Algorithm)")
     print("-" * 60)
 
-    os.environ.update({
-        "PAYMENT_CARD_NUMBER": "4532-0151-1283-0366",  # Valid Visa test card
-    })
+    os.environ.update(
+        {
+            "PAYMENT_CARD_NUMBER": "4532-0151-1283-0366",  # Valid Visa test card
+        }
+    )
 
     payment_settings = PaymentSettings()
     print(f"Card Number: {payment_settings.card_number}")  # Shows digits
-    print(f"Card Repr: {repr(payment_settings.card_number)}")  # Masked!
+    print(f"Card Repr: {payment_settings.card_number!r}")  # Masked!
 
     # Try invalid card
     try:
-        invalid_card = PaymentCardNumber("1234567890123456")
+        PaymentCardNumber("1234567890123456")
     except ValueError as e:
         print(f"✓ Card validation works: {e}")
 
@@ -259,15 +272,16 @@ def main():
     print("-" * 60)
 
     # Create temporary file and use current directory
-    import tempfile
-    with tempfile.NamedTemporaryFile(mode='w', delete=False, suffix='.conf') as f:
+    with tempfile.NamedTemporaryFile(mode="w", delete=False, suffix=".conf") as f:
         f.write("config=value")
         temp_config_file = f.name
 
-    os.environ.update({
-        "PATH_CONFIG_FILE": temp_config_file,
-        "PATH_DATA_DIRECTORY": ".",  # Current directory
-    })
+    os.environ.update(
+        {
+            "PATH_CONFIG_FILE": temp_config_file,
+            "PATH_DATA_DIRECTORY": ".",  # Current directory
+        }
+    )
 
     path_settings = PathSettings()
     print(f"Config File: {path_settings.config_file}")
@@ -278,7 +292,7 @@ def main():
 
     # Try nonexistent file
     try:
-        invalid_path = FilePath("/nonexistent/file.txt")
+        FilePath("/nonexistent/file.txt")
     except ValueError as e:
         print(f"✓ Path validation works: {e}")
 
@@ -287,18 +301,20 @@ def main():
     print("-" * 60)
 
     # Set environment variables
-    os.environ.update({
-        "ADMIN_EMAIL": "admin@myapp.com",
-        "API_URL": "https://api.myapp.com",
-        "FRONTEND_URL": "https://myapp.com",
-        "API_KEY": "sk_prod_secret_key_123",
-        "DB_PASSWORD": "postgres_password_456",
-        "PORT": "8000",
-        "MAX_WORKERS": "4",
-        "RETRY_COUNT": "3",
-        "TIMEOUT": "30.0",
-        "RATE_LIMIT": "100.0",
-    })
+    os.environ.update(
+        {
+            "ADMIN_EMAIL": "admin@myapp.com",
+            "API_URL": "https://api.myapp.com",
+            "FRONTEND_URL": "https://myapp.com",
+            "API_KEY": "sk_prod_secret_key_123",  # nosec - example fake key
+            "DB_PASSWORD": "postgres_password_456",  # nosec - example fake password
+            "PORT": "8000",
+            "MAX_WORKERS": "4",
+            "RETRY_COUNT": "3",
+            "TIMEOUT": "30.0",
+            "RATE_LIMIT": "100.0",
+        }
+    )
 
     app_settings = AppSettings()
     print(f"Admin: {app_settings.admin_email}")

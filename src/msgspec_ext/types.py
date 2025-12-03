@@ -49,8 +49,12 @@ NonNegativeInt = Annotated[int, msgspec.Meta(ge=0, description="Integer >= 0")]
 NonPositiveInt = Annotated[int, msgspec.Meta(le=0, description="Integer <= 0")]
 
 # Float types
-PositiveFloat = Annotated[float, msgspec.Meta(gt=0.0, description="Float greater than 0.0")]
-NegativeFloat = Annotated[float, msgspec.Meta(lt=0.0, description="Float less than 0.0")]
+PositiveFloat = Annotated[
+    float, msgspec.Meta(gt=0.0, description="Float greater than 0.0")
+]
+NegativeFloat = Annotated[
+    float, msgspec.Meta(lt=0.0, description="Float less than 0.0")
+]
 NonNegativeFloat = Annotated[float, msgspec.Meta(ge=0.0, description="Float >= 0.0")]
 NonPositiveFloat = Annotated[float, msgspec.Meta(le=0.0, description="Float <= 0.0")]
 
@@ -163,7 +167,9 @@ class _HttpUrl(str):
 
         # Ensure http/https scheme
         lower_value = value.lower()
-        if not (lower_value.startswith("http://") or lower_value.startswith("https://")):
+        if not (
+            lower_value.startswith("http://") or lower_value.startswith("https://")
+        ):
             raise ValueError(f"URL must use http or https scheme: {value!r}")
 
         return str.__new__(cls, value)
@@ -285,7 +291,9 @@ class _PostgresDsn(str):
 
         # Check scheme
         if not value.lower().startswith(("postgresql://", "postgres://")):
-            raise ValueError("PostgreSQL DSN must start with 'postgresql://' or 'postgres://'")
+            raise ValueError(
+                "PostgreSQL DSN must start with 'postgresql://' or 'postgres://'"
+            )
 
         # Basic validation: must have a host/database part after scheme
         # Format can be: postgresql://host/db or postgresql://user:pass@host/db
@@ -369,7 +377,9 @@ class _PaymentCardNumber(str):
 
         # Check length (13-19 digits for most cards)
         if not _CARD_MIN_LENGTH <= len(digits) <= _CARD_MAX_LENGTH:
-            raise ValueError(f"Card number must be {_CARD_MIN_LENGTH}-{_CARD_MAX_LENGTH} digits")
+            raise ValueError(
+                f"Card number must be {_CARD_MIN_LENGTH}-{_CARD_MAX_LENGTH} digits"
+            )
 
         # Luhn algorithm validation
         if not cls._luhn_check(digits):
@@ -403,7 +413,10 @@ class _PaymentCardNumber(str):
     def __repr__(self) -> str:
         # Mask all but last 4 digits
         if len(self) >= _CARD_MASK_LAST_DIGITS:
-            masked = "*" * (len(self) - _CARD_MASK_LAST_DIGITS) + str.__str__(self)[-_CARD_MASK_LAST_DIGITS:]
+            masked = (
+                "*" * (len(self) - _CARD_MASK_LAST_DIGITS)
+                + str.__str__(self)[-_CARD_MASK_LAST_DIGITS:]
+            )
         else:
             masked = "*" * len(self)
         return f"PaymentCardNumber('{masked}')"

@@ -395,7 +395,9 @@ class BaseSettings:
 
         # Handle Annotated types (e.g., Annotated[int, Meta(...)])
         # For Annotated, get_origin returns typing.Annotated and get_args()[0] is the base type
-        if origin is not None and (origin is Annotated or str(origin) == "typing.Annotated"):
+        if origin is not None and (
+            origin is Annotated or str(origin) == "typing.Annotated"
+        ):
             args = get_args(field_type)
             if args:
                 base_type = args[0]
