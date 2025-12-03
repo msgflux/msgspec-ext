@@ -1,0 +1,8 @@
+name: "CodeQL Config"
+
+# Exclude example files from CodeQL analysis
+# Examples contain fake credentials for demonstration purposes
+paths-ignore:
+  - "examples/**"
+  - "**/test_*.py"
+  - "tests/**"

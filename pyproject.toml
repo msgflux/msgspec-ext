@@ -5,7 +5,7 @@ build-backend = "hatchling.build"
 [project]
 name = "msgspec-ext"
 dynamic = ["version"]
-description = "Fast settings management using msgspec"
+description = "High-performance settings management and validation library extending msgspec"
 readme = "README.md"
 license = "MIT"
 authors = [
@@ -14,12 +14,25 @@ authors = [
 requires-python = ">=3.10"
 dependencies = [
     "msgspec>=0.19.0",
-    "python-dotenv>=1.1.1",
+]
+keywords = [
+    "msgspec",
+    "settings",
+    "configuration",
+    "validation",
+    "validators",
+    "pydantic",
+    "environment-variables",
+    "dotenv",
+    "type-validation",
+    "fast",
+    "performance"
 ]
 classifiers = [
   "Development Status :: 4 - Beta",
   "Intended Audience :: Developers",
   "Intended Audience :: Science/Research",
+  "Intended Audience :: System Administrators",
   "License :: OSI Approved :: MIT License",
   "Operating System :: MacOS :: MacOS X",
   "Operating System :: POSIX :: Linux",
@@ -30,7 +43,9 @@ classifiers = [
   "Programming Language :: Python :: 3.12",
   "Programming Language :: Python :: 3.13",
   "Topic :: Software Development :: Libraries",
-  "Topic :: Software Development :: Libraries :: Python Modules"
+  "Topic :: Software Development :: Libraries :: Python Modules",
+  "Topic :: System :: Systems Administration",
+  "Typing :: Typed"
 ]
 
 [tool.hatch.version]
@@ -102,6 +117,7 @@ ignore = [
   "TID252",  # Allow relative imports
   "UP007",   # Allow `from typing import Optional` instead of `X | None`
   "UP035",   # Allow `from typing import Sequence` instead of `Sequence[X]`
+  "UP038",   # Allow isinstance with tuple instead of `X | Y`
   "PLR0911", # Allow more than 6 return statements
   "PLR0913",
   "B904",    # Allow raise in except without from
@@ -132,3 +148,5 @@ ban-relative-imports = "all"
 ]
 "examples/**/*" = ["D", "S101", "S104", "S105", "T201", "F401"]
 "benchmark.py" = ["D", "S101", "S105", "T201", "PLC0415", "F841", "C901", "PLR0915"]
+"benchmark/**/*" = ["D", "S101", "S104", "S105", "T201", "F401", "S603", "S607", "PLC0415", "ARG001"]
+"test_readme_examples.py" = ["D", "S101", "T201", "PLR2004"]
