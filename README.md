@@ -496,8 +496,7 @@ msgspec-ext achieves exceptional performance through:
 1. **Bulk validation**: Validates all fields at once in C (via msgspec), not one-by-one in Python
 2. **Custom .env parser**: Built-in fast parser with zero external dependencies (117.5x faster than pydantic)
 3. **Smart caching**: Caches .env files, field mappings, and type information - subsequent loads are 169x faster
-4. **Optimized file operations**: Uses fast `os.path` operations instead of slower `pathlib`
-5. **Zero overhead**: Fast paths for common types with minimal Python code
+4. **Zero overhead**: Fast paths for common types with minimal Python code
 
 This means:
 - 🚀 **CLI tools** - 7.0x faster startup every invocation
