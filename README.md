@@ -23,9 +23,9 @@
 
 - ✅ **High performance** - Built on msgspec for speed
 - ✅ **Type-safe** - Full type hints and validation
-- ✅ **.env support** - Automatic loading from .env files via python-dotenv
+- ✅ **.env support** - Fast built-in .env parser (no dependencies)
 - ✅ **Nested settings** - Support for complex configuration structures
-- ✅ **Minimal dependencies** - Only msgspec and python-dotenv
+- ✅ **Zero dependencies** - Only msgspec required
 - ✅ **Familiar API** - Easy to learn if you've used settings libraries before
 
 ## Installation
@@ -144,19 +144,19 @@ msgspec-ext provides a **faster, lighter alternative** to pydantic-settings whil
 
 ### Performance Comparison
 
-**First-time load** (what you'll see when testing):
+**Cold start** (first load, includes .env parsing):
 
 | Library | Time per load | Speed |
 |---------|---------------|-------|
-| **msgspec-ext** | **1.818ms** | **1.5x faster** ⚡ |
-| pydantic-settings | 2.814ms | Baseline |
+| **msgspec-ext** | **0.39ms** | **5.0x faster** ⚡ |
+| pydantic-settings | 1.95ms | Baseline |
 
-**With caching** (repeated loads in long-running applications):
+**Warm (cached)** (repeated loads in long-running applications):
 
 | Library | Time per load | Speed |
 |---------|---------------|-------|
-| **msgspec-ext** | **0.016ms** | **112x faster** ⚡ |
-| pydantic-settings | 1.818ms | Baseline |
+| **msgspec-ext** | **0.012ms** | **267x faster** ⚡ |
+| pydantic-settings | 3.2ms | Baseline |
 
 > *Benchmark includes .env file parsing, environment variable loading, type validation, and nested configuration (app settings, database, redis, feature flags). Run `benchmark/benchmark_cold_warm.py` to reproduce.*
 
@@ -164,11 +164,11 @@ msgspec-ext provides a **faster, lighter alternative** to pydantic-settings whil
 
 | Feature | msgspec-ext | pydantic-settings |
 |---------|------------|-------------------|
-| **First load** | **1.5x faster** ⚡ | Baseline |
-| **Cached loads** | **112x faster** ⚡ | Baseline |
+| **Cold start** | **5.0x faster** ⚡ | Baseline |
+| **Warm (cached)** | **267x faster** ⚡ | Baseline |
 | **Package size** | **0.49 MB** | 1.95 MB |
-| **Dependencies** | **2 (minimal)** | 5+ |
-| .env support | ✅ | ✅ |
+| **Dependencies** | **1 (msgspec only)** | 5+ |
+| .env support | ✅ Built-in | ✅ Via python-dotenv |
 | Type validation | ✅ | ✅ |
 | Advanced caching | ✅ | ❌ |
 | Nested config | ✅ | ✅ |
@@ -179,14 +179,15 @@ msgspec-ext provides a **faster, lighter alternative** to pydantic-settings whil
 
 msgspec-ext achieves its performance through:
 - **Bulk validation**: Validates all fields at once in C (via msgspec), not one-by-one in Python
-- **Smart caching**: Caches .env files, field mappings, and type information - loads after the first are 112x faster
+- **Custom .env parser**: Built-in fast parser with zero external dependencies (no python-dotenv overhead)
+- **Smart caching**: Caches .env files, field mappings, and type information - loads after the first are 267x faster
 - **Optimized file operations**: Uses fast os.path operations instead of slower pathlib alternatives
 - **Zero overhead**: Fast paths for common types (str, bool, int, float) with minimal Python code
 
 This means your application **starts faster** and uses **less memory**, especially important for:
-- 🚀 **CLI tools** - 1.5x faster startup every time you run the command
+- 🚀 **CLI tools** - 5.0x faster startup every time you run the command
 - ⚡ **Serverless functions** - Lower cold start latency means better response times
-- 🔄 **Long-running apps** - After the first load, reloading settings is 112x faster (16 microseconds!)
+- 🔄 **Long-running apps** - After the first load, reloading settings is 267x faster (12 microseconds!)
 
 ## Contributing
 
