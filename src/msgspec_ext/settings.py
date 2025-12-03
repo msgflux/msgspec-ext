@@ -1,13 +1,59 @@
 """Optimized settings management using msgspec.Struct and bulk JSON decoding."""
 
 import os
-from typing import Any, ClassVar, Union, get_args, get_origin
+from typing import Annotated, Any, ClassVar, Union, get_args, get_origin
 
 import msgspec
 
 from msgspec_ext.fast_dotenv import load_dotenv
+from msgspec_ext.types import (
+    AnyUrl,
+    DirectoryPath,
+    EmailStr,
+    FilePath,
+    HttpUrl,
+    PaymentCardNumber,
+    PostgresDsn,
+    RedisDsn,
+    SecretStr,
+)
 
 __all__ = ["BaseSettings", "SettingsConfigDict"]
+
+
+def _dec_hook(typ: type, obj: Any) -> Any:
+    """Decoding hook for custom types.
+
+    Handles conversion from JSON-decoded values to custom types like EmailStr, HttpUrl, etc.
+
+    Args:
+        typ: The target type to decode to
+        obj: The JSON-decoded object
+
+    Returns:
+        Converted object of type typ
+
+    Raises:
+        NotImplementedError: If type is not supported
+    """
+    # Handle our custom string types
+    custom_types = (
+        EmailStr,
+        HttpUrl,
+        AnyUrl,
+        SecretStr,
+        PostgresDsn,
+        RedisDsn,
+        PaymentCardNumber,
+        FilePath,
+        DirectoryPath,
+    )
+    if typ in custom_types:
+        if isinstance(obj, str):
+            return typ(obj)
+
+    # If we don't handle it, let msgspec raise an error
+    raise NotImplementedError(f"Type {typ} unsupported in dec_hook")
 
 
 class SettingsConfigDict(msgspec.Struct):
@@ -195,7 +241,7 @@ class BaseSettings:
             encoder_decoder = cls._encoder_cache.get(struct_cls)
             if encoder_decoder is None:
                 encoder = msgspec.json.Encoder()
-                decoder = msgspec.json.Decoder(type=struct_cls)
+                decoder = msgspec.json.Decoder(type=struct_cls, dec_hook=_dec_hook)
                 encoder_decoder = (encoder, decoder)
                 cls._encoder_cache[struct_cls] = encoder_decoder
                 cls._decoder_cache[struct_cls] = encoder_decoder
@@ -306,7 +352,7 @@ class BaseSettings:
         return env_name
 
     @classmethod
-    def _preprocess_env_value(cls, env_value: str, field_type: type) -> Any:  # noqa: C901
+    def _preprocess_env_value(cls, env_value: str, field_type: type) -> Any:  # noqa: C901, PLR0912
         """Convert environment variable string to JSON-compatible type.
 
         Ultra-optimized to minimize type introspection overhead with caching.
@@ -344,8 +390,19 @@ class BaseSettings:
             except ValueError as e:
                 raise ValueError(f"Cannot convert '{env_value}' to float") from e
 
-        # Only use typing introspection for complex types (Union, Optional, etc.)
+        # Only use typing introspection for complex types (Union, Optional, Annotated, etc.)
         origin = get_origin(field_type)
+
+        # Handle Annotated types (e.g., Annotated[int, Meta(...)])
+        # For Annotated, get_origin returns typing.Annotated and get_args()[0] is the base type
+        if origin is not None and (origin is Annotated or str(origin) == "typing.Annotated"):
+            args = get_args(field_type)
+            if args:
+                base_type = args[0]
+                # Cache and recursively process with base type
+                cls._type_cache[field_type] = base_type
+                return cls._preprocess_env_value(env_value, base_type)
+
         if origin is Union:
             args = get_args(field_type)
             non_none = [a for a in args if a is not type(None)]
