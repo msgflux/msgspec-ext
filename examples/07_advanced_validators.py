@@ -212,8 +212,8 @@ def main():  # noqa: PLR0915
     print("\n5. Past/Future Date Validation")
     print("-" * 60)
 
-    yesterday = date.today() - timedelta(days=1)
-    tomorrow = date.today() + timedelta(days=1)
+    yesterday = date.today() - timedelta(days=1)  # noqa: DTZ011
+    tomorrow = date.today() + timedelta(days=1)  # noqa: DTZ011
 
     os.environ.update(
         {

@@ -188,7 +188,7 @@ username = ConStr("alice", min_length=3, max_length=20, pattern=r"^[a-z0-9]+$")
 | **Storage & Dates** | `ByteSize`, `PastDate`, `FutureDate` |
 | **Constrained** | `ConStr` |
 
-See `examples/06_validators.py` and `examples/08_advanced_validators.py` for complete usage examples.
+See `examples/06_validators.py` and `examples/07_advanced_validators.py` for complete usage examples.
 
 ## Advanced Usage
 
@@ -378,8 +378,8 @@ Check out the `examples/` directory for comprehensive examples:
 - `03_dotenv_file.py` - Loading from .env files
 - `04_advanced_types.py` - Optional, lists, dicts, JSON parsing
 - `05_serialization.py` - model_dump(), model_dump_json(), schema()
-- `06_validators.py` - All Phase 1 validators (17 types)
-- `08_advanced_validators.py` - All Phase 2 validators (8 types)
+- `06_validators.py` - String, numeric, path, and database validators (17 types)
+- `07_advanced_validators.py` - Network, storage, and date validators (8 types)
 
 ## Contributing
 

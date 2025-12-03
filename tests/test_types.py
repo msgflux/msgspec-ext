@@ -1028,25 +1028,25 @@ class TestPastDate:
 
     def test_valid_past_date_from_date(self):
         """Should accept dates in the past."""
-        yesterday = date.today() - timedelta(days=1)
+        yesterday = date.today() - timedelta(days=1)  # noqa: DTZ011
         result = PastDate(yesterday)
         assert result == yesterday
 
     def test_valid_past_date_from_string(self):
         """Should accept ISO date strings in the past."""
-        yesterday = date.today() - timedelta(days=1)
+        yesterday = date.today() - timedelta(days=1)  # noqa: DTZ011
         result = PastDate(yesterday.isoformat())
         assert result == yesterday
 
     def test_reject_today(self):
         """Should reject today's date."""
-        today = date.today()
+        today = date.today()  # noqa: DTZ011
         with pytest.raises(ValueError, match="must be in the past"):
             PastDate(today)
 
     def test_reject_future_date(self):
         """Should reject future dates."""
-        tomorrow = date.today() + timedelta(days=1)
+        tomorrow = date.today() + timedelta(days=1)  # noqa: DTZ011
         with pytest.raises(ValueError, match="must be in the past"):
             PastDate(tomorrow)
 
@@ -1071,25 +1071,25 @@ class TestFutureDate:
 
     def test_valid_future_date_from_date(self):
         """Should accept dates in the future."""
-        tomorrow = date.today() + timedelta(days=1)
+        tomorrow = date.today() + timedelta(days=1)  # noqa: DTZ011
         result = FutureDate(tomorrow)
         assert result == tomorrow
 
     def test_valid_future_date_from_string(self):
         """Should accept ISO date strings in the future."""
-        tomorrow = date.today() + timedelta(days=1)
+        tomorrow = date.today() + timedelta(days=1)  # noqa: DTZ011
         result = FutureDate(tomorrow.isoformat())
         assert result == tomorrow
 
     def test_reject_today(self):
         """Should reject today's date."""
-        today = date.today()
+        today = date.today()  # noqa: DTZ011
         with pytest.raises(ValueError, match="must be in the future"):
             FutureDate(today)
 
     def test_reject_past_date(self):
         """Should reject past dates."""
-        yesterday = date.today() - timedelta(days=1)
+        yesterday = date.today() - timedelta(days=1)  # noqa: DTZ011
         with pytest.raises(ValueError, match="must be in the future"):
             FutureDate(yesterday)
 

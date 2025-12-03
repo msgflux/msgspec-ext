@@ -232,7 +232,7 @@ class TestStorageAndDateValidatorsIntegration:
         class Settings(BaseSettings):
             founding_date: PastDate
 
-        yesterday = date.today() - timedelta(days=1)
+        yesterday = date.today() - timedelta(days=1)  # noqa: DTZ011
         os.environ["FOUNDING_DATE"] = yesterday.isoformat()
         settings = Settings()
         assert settings.founding_date == yesterday
@@ -243,7 +243,7 @@ class TestStorageAndDateValidatorsIntegration:
         class Settings(BaseSettings):
             launch_date: FutureDate
 
-        tomorrow = date.today() + timedelta(days=1)
+        tomorrow = date.today() + timedelta(days=1)  # noqa: DTZ011
         os.environ["LAUNCH_DATE"] = tomorrow.isoformat()
         settings = Settings()
         assert settings.launch_date == tomorrow
@@ -278,7 +278,7 @@ class TestCompleteIntegration:
         test_file = tmp_path / "test.txt"
         test_file.write_text("test")
 
-        yesterday = date.today() - timedelta(days=1)
+        yesterday = date.today() - timedelta(days=1)  # noqa: DTZ011
 
         os.environ.update(
             {
