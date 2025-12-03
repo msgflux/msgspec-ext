@@ -8,10 +8,17 @@ import msgspec
 from msgspec_ext.fast_dotenv import load_dotenv
 from msgspec_ext.types import (
     AnyUrl,
+    ByteSize,
     DirectoryPath,
     EmailStr,
     FilePath,
+    FutureDate,
     HttpUrl,
+    IPv4Address,
+    IPv6Address,
+    IPvAnyAddress,
+    MacAddress,
+    PastDate,
     PaymentCardNumber,
     PostgresDsn,
     RedisDsn,
@@ -47,13 +54,76 @@ def _dec_hook(typ: type, obj: Any) -> Any:
         PaymentCardNumber,
         FilePath,
         DirectoryPath,
+        IPv4Address,
+        IPv6Address,
+        IPvAnyAddress,
+        MacAddress,
     )
     if typ in custom_types:
         if isinstance(obj, str):
             return typ(obj)
 
+    # Handle ByteSize (accepts str or int)
+    if typ is ByteSize:
+        return ByteSize(obj)
+
+    # Handle date types (PastDate, FutureDate)
+    if typ in (PastDate, FutureDate):
+        return typ(obj)
+
+    # Handle ConStr (string with constraints) - but needs special handling
+    # ConStr requires additional parameters, so it can't be used directly in dec_hook
+    # Users should use it manually or with custom validators
+
     # If we don't handle it, let msgspec raise an error
     raise NotImplementedError(f"Type {typ} unsupported in dec_hook")
+
+
+def _enc_hook(obj: Any) -> Any:
+    """Encoding hook for custom types.
+
+    Handles conversion from custom types to JSON-serializable values.
+
+    Args:
+        obj: The object to encode
+
+    Returns:
+        JSON-serializable representation of obj
+
+    Raises:
+        NotImplementedError: If type is not supported
+    """
+    # Convert all our custom string-based types to str
+    custom_types = (
+        EmailStr,
+        HttpUrl,
+        AnyUrl,
+        SecretStr,
+        PostgresDsn,
+        RedisDsn,
+        PaymentCardNumber,
+        FilePath,
+        DirectoryPath,
+        IPv4Address,
+        IPv6Address,
+        IPvAnyAddress,
+        MacAddress,
+    )
+    if isinstance(obj, custom_types):
+        return str(obj)
+
+    # Convert ByteSize to int
+    if isinstance(obj, ByteSize):
+        return int(obj)
+
+    # Convert date types to ISO format string
+    if isinstance(obj, (PastDate, FutureDate)):
+        return obj.isoformat()
+
+    # If we don't handle it, let msgspec raise an error
+    raise NotImplementedError(
+        f"Encoding objects of type {type(obj).__name__} is unsupported"
+    )
 
 
 class SettingsConfigDict(msgspec.Struct):

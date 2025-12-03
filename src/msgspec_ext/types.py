@@ -12,24 +12,34 @@ Example:
         max_connections: PositiveInt
 """
 
+import ipaddress
 import os
 import re
-from typing import Annotated
+from datetime import date, datetime
+from typing import Annotated, ClassVar
 
 import msgspec
 
 __all__ = [
     "AnyUrl",
+    "ByteSize",
+    "ConStr",
     "DirectoryPath",
     "EmailStr",
     "FilePath",
+    "FutureDate",
     "HttpUrl",
+    "IPv4Address",
+    "IPv6Address",
+    "IPvAnyAddress",
+    "MacAddress",
     "NegativeFloat",
     "NegativeInt",
     "NonNegativeFloat",
     "NonNegativeInt",
     "NonPositiveFloat",
     "NonPositiveInt",
+    "PastDate",
     "PaymentCardNumber",
     "PositiveFloat",
     "PositiveInt",
@@ -496,6 +506,380 @@ class _DirectoryPath(str):
         return f"DirectoryPath({str.__repr__(self)})"
 
 
+# ==============================================================================
+# IP Address Validation Types
+# ==============================================================================
+
+
+class _IPv4Address(str):
+    """IPv4 address validation.
+
+    Validates IPv4 addresses (e.g., 192.168.1.1).
+    """
+
+    __slots__ = ()
+
+    def __new__(cls, value: str) -> "_IPv4Address":
+        """Create and validate IPv4 address.
+
+        Args:
+            value: IPv4 address string
+
+        Returns:
+            Validated IPv4 address
+
+        Raises:
+            ValueError: If address format is invalid
+        """
+        if not isinstance(value, str):
+            raise TypeError(f"Expected str, got {type(value).__name__}")
+
+        value = value.strip()
+
+        try:
+            # Validate using ipaddress module
+            addr = ipaddress.IPv4Address(value)
+            return str.__new__(cls, str(addr))
+        except (ValueError, ipaddress.AddressValueError) as e:
+            raise ValueError(f"Invalid IPv4 address: {value!r}") from e
+
+    def __repr__(self) -> str:
+        return f"IPv4Address({str.__repr__(self)})"
+
+
+class _IPv6Address(str):
+    """IPv6 address validation.
+
+    Validates IPv6 addresses (e.g., 2001:0db8:85a3::8a2e:0370:7334).
+    """
+
+    __slots__ = ()
+
+    def __new__(cls, value: str) -> "_IPv6Address":
+        """Create and validate IPv6 address.
+
+        Args:
+            value: IPv6 address string
+
+        Returns:
+            Validated IPv6 address
+
+        Raises:
+            ValueError: If address format is invalid
+        """
+        if not isinstance(value, str):
+            raise TypeError(f"Expected str, got {type(value).__name__}")
+
+        value = value.strip()
+
+        try:
+            # Validate using ipaddress module
+            addr = ipaddress.IPv6Address(value)
+            return str.__new__(cls, str(addr))
+        except (ValueError, ipaddress.AddressValueError) as e:
+            raise ValueError(f"Invalid IPv6 address: {value!r}") from e
+
+    def __repr__(self) -> str:
+        return f"IPv6Address({str.__repr__(self)})"
+
+
+class _IPvAnyAddress(str):
+    """IP address validation (IPv4 or IPv6).
+
+    Validates both IPv4 and IPv6 addresses.
+    """
+
+    __slots__ = ()
+
+    def __new__(cls, value: str) -> "_IPvAnyAddress":
+        """Create and validate IP address.
+
+        Args:
+            value: IP address string (IPv4 or IPv6)
+
+        Returns:
+            Validated IP address
+
+        Raises:
+            ValueError: If address format is invalid
+        """
+        if not isinstance(value, str):
+            raise TypeError(f"Expected str, got {type(value).__name__}")
+
+        value = value.strip()
+
+        try:
+            # Validate using ipaddress module (accepts both IPv4 and IPv6)
+            addr = ipaddress.ip_address(value)
+            return str.__new__(cls, str(addr))
+        except (ValueError, ipaddress.AddressValueError) as e:
+            raise ValueError(f"Invalid IP address: {value!r}") from e
+
+    def __repr__(self) -> str:
+        return f"IPvAnyAddress({str.__repr__(self)})"
+
+
+# ==============================================================================
+# JSON and Special String Types
+# ==============================================================================
+
+
+class _MacAddress(str):
+    """MAC address validation.
+
+    Validates MAC addresses in common formats:
+    - 00:1B:44:11:3A:B7
+    - 00-1B-44-11-3A-B7
+    - 001B.4411.3AB7
+    """
+
+    __slots__ = ()
+
+    # MAC address patterns
+    _MAC_PATTERNS: ClassVar[list] = [
+        re.compile(r"^([0-9A-Fa-f]{2}[:-]){5}([0-9A-Fa-f]{2})$"),  # 00:1B:44:11:3A:B7
+        re.compile(r"^([0-9A-Fa-f]{4}\.){2}([0-9A-Fa-f]{4})$"),  # 001B.4411.3AB7
+    ]
+
+    def __new__(cls, value: str) -> "_MacAddress":
+        """Create and validate MAC address.
+
+        Args:
+            value: MAC address string
+
+        Returns:
+            Validated MAC address
+
+        Raises:
+            ValueError: If MAC address format is invalid
+        """
+        if not isinstance(value, str):
+            raise TypeError(f"Expected str, got {type(value).__name__}")
+
+        value = value.strip()
+
+        # Check against patterns
+        if not any(pattern.match(value) for pattern in cls._MAC_PATTERNS):
+            raise ValueError(f"Invalid MAC address format: {value!r}")
+
+        return str.__new__(cls, value.upper())
+
+    def __repr__(self) -> str:
+        return f"MacAddress({str.__repr__(self)})"
+
+
+class _ConStr(str):
+    """Constrained string with validation.
+
+    String with optional min_length, max_length, and pattern constraints.
+    """
+
+    __slots__ = ("_max_length", "_min_length", "_pattern")
+
+    def __new__(
+        cls,
+        value: str,
+        min_length: int | None = None,
+        max_length: int | None = None,
+        pattern: str | None = None,
+    ) -> "_ConStr":
+        """Create and validate constrained string.
+
+        Args:
+            value: String value
+            min_length: Minimum length (optional)
+            max_length: Maximum length (optional)
+            pattern: Regex pattern (optional)
+
+        Returns:
+            Validated constrained string
+
+        Raises:
+            ValueError: If constraints are violated
+        """
+        if not isinstance(value, str):
+            raise TypeError(f"Expected str, got {type(value).__name__}")
+
+        # Check min_length
+        if min_length is not None and len(value) < min_length:
+            raise ValueError(f"String must be at least {min_length} characters")
+
+        # Check max_length
+        if max_length is not None and len(value) > max_length:
+            raise ValueError(f"String must be at most {max_length} characters")
+
+        # Check pattern
+        if pattern is not None and not re.match(pattern, value):
+            raise ValueError(f"String must match pattern: {pattern!r}")
+
+        instance = str.__new__(cls, value)
+        # Store constraints (though they're not used after validation)
+        object.__setattr__(instance, "_min_length", min_length)
+        object.__setattr__(instance, "_max_length", max_length)
+        object.__setattr__(instance, "_pattern", pattern)
+        return instance
+
+    def __repr__(self) -> str:
+        return f"ConStr({str.__repr__(self)})"
+
+
+# ==============================================================================
+# Byte Size Type
+# ==============================================================================
+
+
+class _ByteSize(int):
+    """Byte size with unit parsing.
+
+    Accepts sizes with units: B, KB, MB, GB, TB, KiB, MiB, GiB, TiB.
+    """
+
+    __slots__ = ()
+
+    # Size multipliers
+    _UNITS: ClassVar[dict[str, int]] = {
+        "B": 1,
+        "KB": 1000,
+        "MB": 1000**2,
+        "GB": 1000**3,
+        "TB": 1000**4,
+        "KIB": 1024,
+        "MIB": 1024**2,
+        "GIB": 1024**3,
+        "TIB": 1024**4,
+    }
+
+    def __new__(cls, value: str | int) -> "_ByteSize":
+        """Create and validate byte size.
+
+        Args:
+            value: Size as int (bytes) or str with unit (e.g., "1MB", "500KB")
+
+        Returns:
+            Validated byte size (as int)
+
+        Raises:
+            ValueError: If format is invalid
+        """
+        if isinstance(value, int):
+            if value < 0:
+                raise ValueError("Byte size must be non-negative")
+            return int.__new__(cls, value)
+
+        if not isinstance(value, str):
+            raise TypeError(f"Expected str or int, got {type(value).__name__}")
+
+        value = value.strip().upper()
+
+        # Try to parse number + unit
+        match = re.match(r"^(\d+(?:\.\d+)?)\s*([A-Z]+)?$", value)
+        if not match:
+            raise ValueError(f"Invalid byte size format: {value!r}")
+
+        number_str, unit = match.groups()
+        number = float(number_str)
+
+        if unit is None or unit == "B":
+            bytes_value = int(number)
+        elif unit in cls._UNITS:
+            bytes_value = int(number * cls._UNITS[unit])
+        else:
+            raise ValueError(f"Unknown unit: {unit!r}")
+
+        if bytes_value < 0:
+            raise ValueError("Byte size must be non-negative")
+
+        return int.__new__(cls, bytes_value)
+
+    def __repr__(self) -> str:
+        return f"ByteSize({int.__repr__(self)})"
+
+
+# ==============================================================================
+# Date Validation Types
+# ==============================================================================
+
+
+class _PastDate(date):
+    """Date that must be in the past.
+
+    Validates that the date is before today.
+    """
+
+    __slots__ = ()
+
+    def __new__(cls, value: date | str) -> "_PastDate":
+        """Create and validate past date.
+
+        Args:
+            value: Date object or ISO format string (YYYY-MM-DD)
+
+        Returns:
+            Validated past date
+
+        Raises:
+            ValueError: If date is not in the past
+        """
+        if isinstance(value, str):
+            try:
+                parsed_date = datetime.fromisoformat(value).date()
+            except ValueError as e:
+                raise ValueError(f"Invalid date format: {value!r}") from e
+        elif isinstance(value, date):
+            parsed_date = value
+        else:
+            raise TypeError(f"Expected date or str, got {type(value).__name__}")
+
+        today = date.today()  # noqa: DTZ011
+        if parsed_date >= today:
+            raise ValueError(f"Date must be in the past: {parsed_date}")
+
+        return date.__new__(cls, parsed_date.year, parsed_date.month, parsed_date.day)
+
+    def __repr__(self) -> str:
+        return f"PastDate({date.__repr__(self)})"
+
+
+class _FutureDate(date):
+    """Date that must be in the future.
+
+    Validates that the date is after today.
+    """
+
+    __slots__ = ()
+
+    def __new__(cls, value: date | str) -> "_FutureDate":
+        """Create and validate future date.
+
+        Args:
+            value: Date object or ISO format string (YYYY-MM-DD)
+
+        Returns:
+            Validated future date
+
+        Raises:
+            ValueError: If date is not in the future
+        """
+        if isinstance(value, str):
+            try:
+                parsed_date = datetime.fromisoformat(value).date()
+            except ValueError as e:
+                raise ValueError(f"Invalid date format: {value!r}") from e
+        elif isinstance(value, date):
+            parsed_date = value
+        else:
+            raise TypeError(f"Expected date or str, got {type(value).__name__}")
+
+        today = date.today()  # noqa: DTZ011
+        if parsed_date <= today:
+            raise ValueError(f"Date must be in the future: {parsed_date}")
+
+        return date.__new__(cls, parsed_date.year, parsed_date.month, parsed_date.day)
+
+    def __repr__(self) -> str:
+        return f"FutureDate({date.__repr__(self)})"
+
+
 # Export as type aliases for better DX
 EmailStr = _EmailStr
 HttpUrl = _HttpUrl
@@ -506,3 +890,11 @@ RedisDsn = _RedisDsn
 PaymentCardNumber = _PaymentCardNumber
 FilePath = _FilePath
 DirectoryPath = _DirectoryPath
+IPv4Address = _IPv4Address
+IPv6Address = _IPv6Address
+IPvAnyAddress = _IPvAnyAddress
+MacAddress = _MacAddress
+ConStr = _ConStr
+ByteSize = _ByteSize
+PastDate = _PastDate
+FutureDate = _FutureDate
