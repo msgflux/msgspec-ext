@@ -6,10 +6,8 @@
   </picture>
 </p>
 
-
-
 <p align="center">
-  <b>Fast settings management using <a href="https://github.com/jcrist/msgspec">msgspec</a></b> - a high-performance validation and serialization library
+  <b>High-performance settings management and validation library powered by <a href="https://github.com/jcrist/msgspec">msgspec</a></b>
 </p>
 
 <p align="center">
@@ -21,14 +19,14 @@
 
 ## Features
 
-- ✅ **7x faster than pydantic-settings** - High performance built on msgspec
-- ✅ **Drop-in API compatibility** - Familiar interface, easy migration from pydantic-settings
-- ✅ **Type-safe** - Full type hints and validation
-- ✅ **17+ built-in validators** - Email, URLs, numeric constraints, payment cards, paths, and more
-- ✅ **.env support** - Fast built-in .env parser (no dependencies)
-- ✅ **Nested settings** - Support for complex configuration structures
-- ✅ **Zero dependencies** - Only msgspec required
-- ✅ **169x faster cached loads** - Smart caching for repeated access
+- ⚡ **7x faster than pydantic-settings** - Built on [msgspec](https://github.com/jcrist/msgspec)'s high-performance validation
+- 🎯 **26 built-in validators** - Email, URLs, IP addresses, MAC addresses, dates, storage sizes, and more
+- 🔧 **Drop-in API compatibility** - Familiar interface, easy migration from pydantic-settings
+- 📦 **All msgspec types supported** - Full compatibility with [msgspec's rich type system](https://jcristharif.com/msgspec/supported-types.html)
+- 🔐 **Type-safe** - Complete type hints and validation
+- 📁 **.env support** - Fast built-in .env parser (169x faster cached loads)
+- 🎨 **Nested settings** - Support for complex configuration structures
+- 🪶 **Zero dependencies** - Only msgspec required
 
 ## Installation
 
@@ -45,223 +43,301 @@ uv add msgspec-ext
 ## Quick Start
 
 ```python
-from msgspec_ext import BaseSettings, SettingsConfigDict
+from msgspec_ext import BaseSettings, EmailStr, HttpUrl, PositiveInt
 
 class AppSettings(BaseSettings):
-    model_config = SettingsConfigDict(
-        env_file=".env",  # Load from .env file
-        env_prefix="APP_"  # Prefix for env vars
-    )
-
-    # Settings with type validation
+    # Basic types (msgspec native support)
     name: str
     debug: bool = False
-    port: int = 8000
-    timeout: float = 30.0
+
+    # Numeric validators
+    port: PositiveInt = 8000  # Must be > 0
+    workers: PositiveInt = 4
+
+    # String validators
+    admin_email: EmailStr  # RFC 5321 validation
+    api_url: HttpUrl  # HTTP/HTTPS only
 
 # Load from environment variables and .env file
 settings = AppSettings()
-
-print(settings.name)   # from APP_NAME env var
-print(settings.port)   # from APP_PORT env var or default 8000
 ```
 
-## Environment Variables
-
-By default, msgspec-ext looks for environment variables matching field names (case-insensitive).
-
-**.env file**:
+Set environment variables:
 ```bash
-APP_NAME=my-app
-DEBUG=true
-PORT=3000
-DATABASE__HOST=localhost
-DATABASE__PORT=5432
+export NAME="my-app"
+export ADMIN_EMAIL="admin@example.com"
+export API_URL="https://api.example.com"
 ```
 
-**Python code**:
-```python
-from msgspec_ext import BaseSettings, SettingsConfigDict
+## Type Support
 
-class AppSettings(BaseSettings):
-    model_config = SettingsConfigDict(
-        env_file=".env",
-        env_nested_delimiter="__"
-    )
+msgspec-ext supports **all msgspec native types** plus **26 additional validators** for common use cases.
 
-    app_name: str
-    debug: bool = False
-    database_host: str = "localhost"
-    database_port: int = 5432
+### Built-in msgspec Types
 
-settings = AppSettings()
-# Automatically loads from .env file and environment variables
-```
+msgspec-ext has full compatibility with [msgspec's extensive type system](https://jcristharif.com/msgspec/supported-types.html):
 
-## Advanced Usage
+- **Basic**: `bool`, `int`, `float`, `str`, `bytes`, `bytearray`
+- **Collections**: `list`, `tuple`, `set`, `frozenset`, `dict`
+- **Typing**: `Optional`, `Union`, `Literal`, `Final`, `Annotated`
+- **Advanced**: `datetime`, `date`, `time`, `timedelta`, `UUID`, `Decimal`
+- **msgspec**: `msgspec.Raw`, `msgspec.UNSET` (re-exported for convenience)
 
-### Field Validators
+Plus many more - see the [full list in msgspec documentation](https://jcristharif.com/msgspec/supported-types.html).
 
-msgspec-ext provides 17+ built-in validator types for common use cases:
+### Custom Validators (26 types)
 
-#### Numeric Constraints
+msgspec-ext adds **26 specialized validators** for common validation scenarios:
+
+#### 🔢 Numeric Constraints (8 types)
 
 ```python
-from msgspec_ext import BaseSettings, PositiveInt, NonNegativeInt
+from msgspec_ext import (
+    PositiveInt, NegativeInt, NonNegativeInt, NonPositiveInt,
+    PositiveFloat, NegativeFloat, NonNegativeFloat, NonPositiveFloat
+)
 
 class ServerSettings(BaseSettings):
     port: PositiveInt  # Must be > 0
-    max_connections: PositiveInt
-    retry_count: NonNegativeInt  # Can be 0
+    offset: NegativeInt  # Must be < 0
+    retry_count: NonNegativeInt  # Can be 0 or positive
+    balance: NonPositiveFloat  # Can be 0 or negative
 ```
 
-**Available numeric types:**
-- `PositiveInt`, `NegativeInt`, `NonNegativeInt`, `NonPositiveInt`
-- `PositiveFloat`, `NegativeFloat`, `NonNegativeFloat`, `NonPositiveFloat`
-
-#### String Validators
+#### 🌐 Network & Hardware (4 types)
 
 ```python
-from msgspec_ext import BaseSettings, EmailStr, HttpUrl, SecretStr
+from msgspec_ext import IPv4Address, IPv6Address, IPvAnyAddress, MacAddress
+
+class NetworkSettings(BaseSettings):
+    server_ipv4: IPv4Address  # 192.168.1.1
+    server_ipv6: IPv6Address  # 2001:db8::1
+    proxy_ip: IPvAnyAddress  # Accepts IPv4 or IPv6
+    device_mac: MacAddress  # AA:BB:CC:DD:EE:FF
+```
+
+#### ✉️ String Validators (4 types)
+
+```python
+from msgspec_ext import EmailStr, HttpUrl, AnyUrl, SecretStr
 
 class AppSettings(BaseSettings):
     admin_email: EmailStr  # RFC 5321 validation
     api_url: HttpUrl  # HTTP/HTTPS only
-    api_key: SecretStr  # Masked in logs/output
+    webhook_url: AnyUrl  # Any valid URL scheme
+    api_key: SecretStr  # Masked in logs: **********
 ```
 
-**Available string types:**
-- `EmailStr` - Email validation (RFC 5321)
-- `HttpUrl` - HTTP/HTTPS URLs only
-- `AnyUrl` - Any valid URL scheme
-- `SecretStr` - Masks sensitive data in output
-
-#### Database & Cache Validators
+#### 🗄️ Database & Connections (3 types)
 
 ```python
-from msgspec_ext import BaseSettings, PostgresDsn, RedisDsn
+from msgspec_ext import PostgresDsn, RedisDsn, PaymentCardNumber
 
 class ConnectionSettings(BaseSettings):
     database_url: PostgresDsn  # postgresql://user:pass@host/db
     cache_url: RedisDsn  # redis://localhost:6379
+    card_number: PaymentCardNumber  # Luhn validation + masking
 ```
 
-#### Payment Card Validation
+#### 📁 Path Validators (2 types)
 
 ```python
-from msgspec_ext import BaseSettings, PaymentCardNumber
-
-class PaymentSettings(BaseSettings):
-    card: PaymentCardNumber  # Luhn algorithm + masking
-```
-
-**Features:**
-- Validates using Luhn algorithm
-- Automatically strips spaces/dashes
-- Masks card number in repr (shows last 4 digits only)
-
-#### Path Validators
-
-```python
-from msgspec_ext import BaseSettings, FilePath, DirectoryPath
+from msgspec_ext import FilePath, DirectoryPath
 
 class PathSettings(BaseSettings):
     config_file: FilePath  # Must exist and be a file
     data_dir: DirectoryPath  # Must exist and be a directory
 ```
 
-**Complete validator list:**
+#### 💾 Storage & Dates (3 types)
 
-| Validator | Description |
-|-----------|-------------|
-| `PositiveInt` | Integer > 0 |
-| `NegativeInt` | Integer < 0 |
-| `NonNegativeInt` | Integer ≥ 0 |
-| `NonPositiveInt` | Integer ≤ 0 |
-| `PositiveFloat` | Float > 0.0 |
-| `NegativeFloat` | Float < 0.0 |
-| `NonNegativeFloat` | Float ≥ 0.0 |
-| `NonPositiveFloat` | Float ≤ 0.0 |
-| `EmailStr` | Email address (RFC 5321) |
-| `HttpUrl` | HTTP/HTTPS URL |
-| `AnyUrl` | Any valid URL |
-| `SecretStr` | Masked sensitive data |
-| `PostgresDsn` | PostgreSQL connection string |
-| `RedisDsn` | Redis connection string |
-| `PaymentCardNumber` | Credit card with Luhn validation |
-| `FilePath` | Existing file path |
-| `DirectoryPath` | Existing directory path |
+```python
+from msgspec_ext import ByteSize, PastDate, FutureDate
+from datetime import date
 
-See `examples/06_validators.py` for complete examples.
+class AppSettings(BaseSettings):
+    max_upload: ByteSize  # Parse "10MB", "1GB", etc.
+    cache_size: ByteSize  # Supports KB, MB, GB, KiB, MiB, GiB
+
+    founding_date: PastDate  # Must be before today
+    launch_date: FutureDate  # Must be after today
+```
+
+#### 🎯 Constrained Strings (2 types)
+
+```python
+from msgspec_ext import ConStr
+
+class UserSettings(BaseSettings):
+    # With constraints
+    username: ConStr  # Can use min_length, max_length, pattern
+
+# Usage:
+username = ConStr("alice", min_length=3, max_length=20, pattern=r"^[a-z0-9]+$")
+```
+
+### Complete Validator List
+
+| Category | Validators |
+|----------|-----------|
+| **Numeric** | `PositiveInt`, `NegativeInt`, `NonNegativeInt`, `NonPositiveInt`, `PositiveFloat`, `NegativeFloat`, `NonNegativeFloat`, `NonPositiveFloat` |
+| **Network** | `IPv4Address`, `IPv6Address`, `IPvAnyAddress`, `MacAddress` |
+| **String** | `EmailStr`, `HttpUrl`, `AnyUrl`, `SecretStr` |
+| **Database** | `PostgresDsn`, `RedisDsn`, `PaymentCardNumber` |
+| **Paths** | `FilePath`, `DirectoryPath` |
+| **Storage & Dates** | `ByteSize`, `PastDate`, `FutureDate` |
+| **Constrained** | `ConStr` |
+
+See `examples/06_validators.py` and `examples/08_advanced_validators.py` for complete usage examples.
+
+## Advanced Usage
+
+### Environment Variables & .env Files
+
+```python
+from msgspec_ext import BaseSettings, SettingsConfigDict
+
+class AppSettings(BaseSettings):
+    model_config = SettingsConfigDict(
+        env_file=".env",  # Load from .env file
+        env_prefix="APP_",  # Prefix for env vars
+        env_nested_delimiter="__"  # Nested config separator
+    )
+
+    name: str
+    debug: bool = False
+    port: int = 8000
+
+# Loads from APP_NAME, APP_DEBUG, APP_PORT
+settings = AppSettings()
+```
+
+**.env file**:
+```bash
+APP_NAME=my-app
+APP_DEBUG=true
+APP_PORT=3000
+APP_DATABASE__HOST=localhost
+APP_DATABASE__PORT=5432
+```
 
 ### Nested Configuration
 
 ```python
-from msgspec_ext import BaseSettings, SettingsConfigDict
+from msgspec_ext import BaseSettings, SettingsConfigDict, PostgresDsn
 
 class DatabaseSettings(BaseSettings):
     host: str = "localhost"
     port: int = 5432
     name: str = "myapp"
-    user: str = "postgres"
-    password: str = ""
+    url: PostgresDsn
 
 class AppSettings(BaseSettings):
     model_config = SettingsConfigDict(
         env_file=".env",
         env_nested_delimiter="__"
     )
-    
+
     name: str = "My App"
     debug: bool = False
     database: DatabaseSettings
 
-# Loads nested config from DATABASE__HOST, DATABASE__PORT, etc.
+# Loads from DATABASE__HOST, DATABASE__PORT, DATABASE__URL, etc.
 settings = AppSettings()
-print(settings.database.host)  # from DATABASE__HOST env var
+print(settings.database.host)
 ```
 
-### Custom Validation
+### Secret Masking
 
 ```python
-from msgspec_ext import BaseSettings, SettingsConfigDict
-from typing import Literal
+from msgspec_ext import BaseSettings, SecretStr
 
 class AppSettings(BaseSettings):
-    model_config = SettingsConfigDict(env_file=".env")
-    
-    # Custom validation with enums
-    environment: Literal["development", "staging", "production"] = "development"
-    
-    # JSON parsing from environment variables
-    features: list[str] = ["auth", "api"]
-    limits: dict[str, int] = {"requests": 100, "timeout": 30}
+    api_key: SecretStr
+    db_password: SecretStr
 
 settings = AppSettings()
-print(settings.features)  # Automatically parsed from JSON string
+print(settings.api_key)  # Output: **********
+print(settings.api_key.get_secret_value())  # Output: actual-secret-key
+```
+
+### Storage Size Parsing
+
+```python
+from msgspec_ext import BaseSettings, ByteSize
+
+class StorageSettings(BaseSettings):
+    max_upload: ByteSize
+    cache_limit: ByteSize
+
+# Environment variables:
+# MAX_UPLOAD=10MB
+# CACHE_LIMIT=1GB
+
+settings = StorageSettings()
+print(int(settings.max_upload))  # 10000000 (10 MB in bytes)
+print(int(settings.cache_limit))  # 1000000000 (1 GB in bytes)
+```
+
+Supported units: `B`, `KB`, `MB`, `GB`, `TB`, `KiB`, `MiB`, `GiB`, `TiB`
+
+### Date Validation
+
+```python
+from msgspec_ext import BaseSettings, PastDate, FutureDate
+from datetime import date, timedelta
+
+class EventSettings(BaseSettings):
+    founding_date: PastDate  # Must be before today
+    launch_date: FutureDate  # Must be after today
+
+# Environment variables:
+# FOUNDING_DATE=2020-01-01
+# LAUNCH_DATE=2025-12-31
+
+settings = EventSettings()
+```
+
+### JSON Parsing from Environment
+
+```python
+from msgspec_ext import BaseSettings
+
+class AppSettings(BaseSettings):
+    # Automatically parse JSON from environment variables
+    features: list[str] = ["auth", "api"]
+    limits: dict[str, int] = {"requests": 100}
+    config: dict[str, any] = {}
+
+# Environment variable:
+# FEATURES=["auth","api","payments"]
+# LIMITS={"requests":1000,"timeout":30}
+
+settings = AppSettings()
+print(settings.features)  # ['auth', 'api', 'payments']
 ```
 
 ## Why Choose msgspec-ext?
 
-msgspec-ext provides a **faster, lighter alternative** to pydantic-settings while maintaining a familiar API and full type safety.
+msgspec-ext provides a **faster, lighter alternative** to pydantic-settings while offering **more validators** and maintaining a familiar API.
 
-### Performance Comparison (Google Colab Results)
+### Performance Comparison
 
-**Cold start** (first load, includes .env parsing) - *Benchmarked on Google Colab*:
+**Cold start** (first load, includes .env parsing):
 
 | Library | Time per load | Speed |
 |---------|---------------|-------|
 | **msgspec-ext** | **0.353ms** | **7.0x faster** ⚡ |
 | pydantic-settings | 2.47ms | Baseline |
 
-**Warm (cached)** (repeated loads in long-running applications) - *Benchmarked on Google Colab*:
+**Warm (cached)** (repeated loads in long-running applications):
 
 | Library | Time per load | Speed |
 |---------|---------------|-------|
 | **msgspec-ext** | **0.011ms** | **169x faster** ⚡ |
 | pydantic-settings | 1.86ms | Baseline |
 
-> *Benchmark executed on Google Colab includes .env file parsing, environment variable loading, type validation, and nested configuration. Run `benchmark/benchmark_cold_warm.py` on Google Colab to reproduce these results.*
+> *Benchmarks run on Google Colab. Includes .env parsing, environment variable loading, type validation, and nested configuration. Run `benchmark/benchmark_cold_warm.py` to reproduce.*
 
 ### Key Advantages
 
@@ -269,28 +345,41 @@ msgspec-ext provides a **faster, lighter alternative** to pydantic-settings whil
 |---------|------------|-------------------|
 | **Cold start** | **7.0x faster** ⚡ | Baseline |
 | **Warm (cached)** | **169x faster** ⚡ | Baseline |
+| **Validators** | **26 built-in** | ~15 |
 | **Package size** | **0.49 MB** | 1.95 MB |
 | **Dependencies** | **1 (msgspec only)** | 5+ |
-| .env support | ✅ Built-in | ✅ Via python-dotenv |
-| Type validation | ✅ | ✅ |
-| Advanced caching | ✅ | ❌ |
+| .env support | ✅ Built-in fast parser | ✅ Via python-dotenv |
+| Type validation | ✅ msgspec C backend | ✅ Pydantic |
+| Advanced caching | ✅ 169x faster | ❌ |
 | Nested config | ✅ | ✅ |
 | JSON Schema | ✅ | ✅ |
-| Secret masking | ⚠️ Planned | ✅ |
 
 ### How is it so fast?
 
-msgspec-ext achieves its performance through:
-- **Bulk validation**: Validates all fields at once in C (via msgspec), not one-by-one in Python
-- **Custom .env parser**: Built-in fast parser with zero external dependencies (no python-dotenv overhead)
-- **Smart caching**: Caches .env files, field mappings, and type information - loads after the first are 169x faster
-- **Optimized file operations**: Uses fast os.path operations instead of slower pathlib alternatives
-- **Zero overhead**: Fast paths for common types (str, bool, int, float) with minimal Python code
+msgspec-ext achieves exceptional performance through:
 
-This means your application **starts faster** and uses **less memory**, especially important for:
-- 🚀 **CLI tools** - 7.0x faster startup every time you run the command
-- ⚡ **Serverless functions** - Lower cold start latency means better response times
-- 🔄 **Long-running apps** - After the first load, reloading settings is 169x faster (11 microseconds!)
+1. **Bulk validation**: Validates all fields at once in C (via msgspec), not one-by-one in Python
+2. **Custom .env parser**: Built-in fast parser with zero external dependencies (117.5x faster than pydantic)
+3. **Smart caching**: Caches .env files, field mappings, and type information - subsequent loads are 169x faster
+4. **Optimized file operations**: Uses fast `os.path` operations instead of slower `pathlib`
+5. **Zero overhead**: Fast paths for common types with minimal Python code
+
+This means:
+- 🚀 **CLI tools** - 7.0x faster startup every invocation
+- ⚡ **Serverless functions** - Lower cold start latency
+- 🔄 **Long-running apps** - Reloading settings takes only 11 microseconds after first load!
+
+## Examples
+
+Check out the `examples/` directory for comprehensive examples:
+
+- `01_basic_usage.py` - Getting started with BaseSettings
+- `02_env_prefix.py` - Using environment variable prefixes
+- `03_dotenv_file.py` - Loading from .env files
+- `04_advanced_types.py` - Optional, lists, dicts, JSON parsing
+- `05_serialization.py` - model_dump(), model_dump_json(), schema()
+- `06_validators.py` - All Phase 1 validators (17 types)
+- `08_advanced_validators.py` - All Phase 2 validators (8 types)
 
 ## Contributing
 
@@ -299,3 +388,7 @@ We welcome contributions! Please see [CONTRIBUTING.md](CONTRIBUTING.md) for guid
 ## License
 
 MIT License - see [LICENSE](LICENSE) file for details.
+
+## Acknowledgments
+
+Built on top of the amazing [msgspec](https://github.com/jcrist/msgspec) library by [@jcrist](https://github.com/jcrist).
