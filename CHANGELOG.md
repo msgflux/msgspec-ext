@@ -9,6 +9,39 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [0.5.0] - 2025-12-03
 
+### Added
+- **26 Custom Validators** - Complete validation library extending msgspec
+  - 🔢 **Numeric Constraints (8 types)**: `PositiveInt`, `NegativeInt`, `NonNegativeInt`, `NonPositiveInt`, `PositiveFloat`, `NegativeFloat`, `NonNegativeFloat`, `NonPositiveFloat`
+  - 🌐 **Network & Hardware (4 types)**: `IPv4Address`, `IPv6Address`, `IPvAnyAddress`, `MacAddress`
+  - ✉️ **String Validators (4 types)**: `EmailStr`, `HttpUrl`, `AnyUrl`, `SecretStr`
+  - 🗄️ **Database (3 types)**: `PostgresDsn`, `RedisDsn`, `PaymentCardNumber`
+  - 📁 **Path Validators (2 types)**: `FilePath`, `DirectoryPath`
+  - 💾 **Storage & Dates (3 types)**: `ByteSize`, `PastDate`, `FutureDate`
+  - 🎯 **Constrained Strings (2 types)**: `ConStr`
+- **msgspec.Struct Support** - All validators now work seamlessly with both `BaseSettings` and `msgspec.Struct`
+- **Serialization Hooks** - `dec_hook` and `enc_hook` for JSON/MessagePack serialization
+- **Re-exported msgspec types** - `Raw` and `UNSET` for convenience
+- Comprehensive integration tests (18 new tests, 220 total)
+- Advanced validator examples (`examples/07_advanced_validators.py`)
+
+### Changed
+- **Enhanced README** - Complete overhaul emphasizing dual nature: settings management AND validation library
+- **Use Cases Section** - Real-world examples for API validation, configuration files, and message queues
+- **Documentation** - Added output examples for `model_dump()` and `model_dump_json()`
+- **Project Description** - Updated to reflect evolution from settings-only to comprehensive validation library
+
+### Documentation
+- Added msgspec.Struct usage examples throughout README
+- Documented all 26 validators with code examples
+- Added "Type Support" section linking to msgspec native types
+- Improved Quick Start with both BaseSettings and msgspec.Struct examples
+- Added practical use cases: API Request/Response, Config Files, Message Queues
+
+### Developer Experience
+- All validators type-safe and fully documented
+- Works with both environment variables (BaseSettings) and direct JSON/MessagePack (msgspec.Struct)
+- Zero breaking changes - fully backward compatible
+
 ## [0.4.0] - 2025-12-03
 
 ### Added
