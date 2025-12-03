@@ -1,16 +1,27 @@
+import msgspec
+
 from .settings import BaseSettings, SettingsConfigDict
 from .types import (
     AnyUrl,
+    ByteSize,
+    ConStr,
     DirectoryPath,
     EmailStr,
     FilePath,
+    FutureDate,
     HttpUrl,
+    IPv4Address,
+    IPv6Address,
+    IPvAnyAddress,
+    Json,
+    MacAddress,
     NegativeFloat,
     NegativeInt,
     NonNegativeFloat,
     NonNegativeInt,
     NonPositiveFloat,
     NonPositiveInt,
+    PastDate,
     PaymentCardNumber,
     PositiveFloat,
     PositiveInt,
@@ -19,23 +30,38 @@ from .types import (
     SecretStr,
 )
 
+# Re-export useful msgspec native types for convenience
+Raw = msgspec.Raw
+UNSET = msgspec.UNSET
+
 __all__ = [
+    "UNSET",
     "AnyUrl",
     "BaseSettings",
+    "ByteSize",
+    "ConStr",
     "DirectoryPath",
     "EmailStr",
     "FilePath",
+    "FutureDate",
     "HttpUrl",
+    "IPv4Address",
+    "IPv6Address",
+    "IPvAnyAddress",
+    "Json",
+    "MacAddress",
     "NegativeFloat",
     "NegativeInt",
     "NonNegativeFloat",
     "NonNegativeInt",
     "NonPositiveFloat",
     "NonPositiveInt",
+    "PastDate",
     "PaymentCardNumber",
     "PositiveFloat",
     "PositiveInt",
     "PostgresDsn",
+    "Raw",
     "RedisDsn",
     "SecretStr",
     "SettingsConfigDict",

@@ -1,19 +1,30 @@
 """Tests for custom types and validators in msgspec_ext.types."""
 
+from datetime import date, timedelta
+
 import pytest
 
 from msgspec_ext.types import (
     AnyUrl,
+    ByteSize,
+    ConStr,
     DirectoryPath,
     EmailStr,
     FilePath,
+    FutureDate,
     HttpUrl,
+    IPv4Address,
+    IPv6Address,
+    IPvAnyAddress,
+    Json,
+    MacAddress,
     NegativeFloat,
     NegativeInt,
     NonNegativeFloat,
     NonNegativeInt,
     NonPositiveFloat,
     NonPositiveInt,
+    PastDate,
     PaymentCardNumber,
     PositiveFloat,
     PositiveInt,
@@ -679,3 +690,484 @@ class TestDirectoryPath:
         """Should reject non-string inputs."""
         with pytest.raises(TypeError):
             DirectoryPath(123)  # type: ignore
+
+
+# ==============================================================================
+# IPv4Address Tests
+# ==============================================================================
+
+
+class TestIPv4Address:
+    """Tests for IPv4Address type."""
+
+    def test_valid_ipv4_addresses(self):
+        """Should accept valid IPv4 addresses."""
+        valid_ips = [
+            "192.168.1.1",
+            "10.0.0.1",
+            "172.16.0.1",
+            "0.0.0.0",
+            "255.255.255.255",
+        ]
+        for ip in valid_ips:
+            result = IPv4Address(ip)
+            assert str(result) == ip
+
+    def test_ipv4_strips_whitespace(self):
+        """Should strip leading/trailing whitespace."""
+        result = IPv4Address("  192.168.1.1  ")
+        assert str(result) == "192.168.1.1"
+
+    def test_reject_invalid_ipv4(self):
+        """Should reject invalid IPv4 addresses."""
+        invalid_ips = [
+            "256.1.1.1",  # Out of range
+            "192.168.1",  # Too few octets
+            "192.168.1.1.1",  # Too many octets
+            "192.168.1.a",  # Non-numeric
+            "not-an-ip",
+        ]
+        for ip in invalid_ips:
+            with pytest.raises(ValueError, match="Invalid IPv4 address"):
+                IPv4Address(ip)
+
+    def test_reject_ipv6(self):
+        """Should reject IPv6 addresses."""
+        with pytest.raises(ValueError):
+            IPv4Address("::1")
+
+    def test_ipv4_type_error(self):
+        """Should reject non-string inputs."""
+        with pytest.raises(TypeError):
+            IPv4Address(123)  # type: ignore
+
+
+# ==============================================================================
+# IPv6Address Tests
+# ==============================================================================
+
+
+class TestIPv6Address:
+    """Tests for IPv6Address type."""
+
+    def test_valid_ipv6_addresses(self):
+        """Should accept valid IPv6 addresses."""
+        valid_ips = [
+            "::1",  # Loopback
+            "2001:db8::1",
+            "fe80::1",
+            "2001:0db8:0000:0000:0000:0000:0000:0001",
+            "::",  # All zeros
+        ]
+        for ip in valid_ips:
+            result = IPv6Address(ip)
+            # IPv6 addresses may be normalized
+            assert isinstance(result, str)
+
+    def test_ipv6_strips_whitespace(self):
+        """Should strip leading/trailing whitespace."""
+        result = IPv6Address("  ::1  ")
+        assert str(result) == "::1"
+
+    def test_reject_invalid_ipv6(self):
+        """Should reject invalid IPv6 addresses."""
+        invalid_ips = [
+            "gggg::1",  # Invalid hex
+            "::1::2",  # Multiple ::
+            "not-an-ip",
+        ]
+        for ip in invalid_ips:
+            with pytest.raises(ValueError, match="Invalid IPv6 address"):
+                IPv6Address(ip)
+
+    def test_reject_ipv4(self):
+        """Should reject IPv4 addresses."""
+        with pytest.raises(ValueError):
+            IPv6Address("192.168.1.1")
+
+    def test_ipv6_type_error(self):
+        """Should reject non-string inputs."""
+        with pytest.raises(TypeError):
+            IPv6Address(123)  # type: ignore
+
+
+# ==============================================================================
+# IPvAnyAddress Tests
+# ==============================================================================
+
+
+class TestIPvAnyAddress:
+    """Tests for IPvAnyAddress type."""
+
+    def test_valid_ipv4_addresses(self):
+        """Should accept valid IPv4 addresses."""
+        valid_ips = ["192.168.1.1", "10.0.0.1", "127.0.0.1"]
+        for ip in valid_ips:
+            result = IPvAnyAddress(ip)
+            assert str(result) == ip
+
+    def test_valid_ipv6_addresses(self):
+        """Should accept valid IPv6 addresses."""
+        valid_ips = ["::1", "2001:db8::1", "fe80::1"]
+        for ip in valid_ips:
+            result = IPvAnyAddress(ip)
+            assert isinstance(result, str)
+
+    def test_ip_strips_whitespace(self):
+        """Should strip leading/trailing whitespace."""
+        result = IPvAnyAddress("  192.168.1.1  ")
+        assert str(result) == "192.168.1.1"
+
+    def test_reject_invalid_ip(self):
+        """Should reject invalid IP addresses."""
+        invalid_ips = [
+            "256.1.1.1",
+            "not-an-ip",
+            "192.168.1",
+            "",
+        ]
+        for ip in invalid_ips:
+            with pytest.raises(ValueError, match="Invalid IP address"):
+                IPvAnyAddress(ip)
+
+    def test_ip_type_error(self):
+        """Should reject non-string inputs."""
+        with pytest.raises(TypeError):
+            IPvAnyAddress(123)  # type: ignore
+
+
+# ==============================================================================
+# Json Tests
+# ==============================================================================
+
+
+class TestJson:
+    """Tests for Json type."""
+
+    def test_valid_json_object(self):
+        """Should accept valid JSON objects."""
+        valid_json = [
+            '{"key": "value"}',
+            '{"number": 123}',
+            '{"array": [1, 2, 3]}',
+            '{"nested": {"key": "value"}}',
+        ]
+        for json_str in valid_json:
+            result = Json(json_str)
+            assert str(result) == json_str
+
+    def test_valid_json_array(self):
+        """Should accept valid JSON arrays."""
+        valid_json = [
+            "[1, 2, 3]",
+            '["a", "b", "c"]',
+            '[{"key": "value"}]',
+        ]
+        for json_str in valid_json:
+            result = Json(json_str)
+            assert str(result) == json_str
+
+    def test_valid_json_primitives(self):
+        """Should accept JSON primitives."""
+        valid_json = [
+            '"string"',
+            "123",
+            "true",
+            "false",
+            "null",
+        ]
+        for json_str in valid_json:
+            result = Json(json_str)
+            assert str(result) == json_str
+
+    def test_json_strips_whitespace(self):
+        """Should strip leading/trailing whitespace."""
+        result = Json('  {"key": "value"}  ')
+        assert str(result) == '{"key": "value"}'
+
+    def test_reject_invalid_json(self):
+        """Should reject invalid JSON."""
+        invalid_json = [
+            "{key: value}",  # Unquoted keys
+            "{'key': 'value'}",  # Single quotes
+            "{",  # Incomplete
+            "not json",
+            "",
+        ]
+        for json_str in invalid_json:
+            with pytest.raises(ValueError, match="Invalid JSON"):
+                Json(json_str)
+
+    def test_json_type_error(self):
+        """Should reject non-string inputs."""
+        with pytest.raises(TypeError):
+            Json(123)  # type: ignore
+
+
+# ==============================================================================
+# MacAddress Tests
+# ==============================================================================
+
+
+class TestMacAddress:
+    """Tests for MacAddress type."""
+
+    def test_valid_mac_colon_format(self):
+        """Should accept MAC addresses in colon format."""
+        valid_macs = [
+            "00:1B:44:11:3A:B7",
+            "00-1B-44-11-3A-B7",  # Also with dashes
+        ]
+        for mac in valid_macs:
+            result = MacAddress(mac)
+            # Should be uppercase
+            assert str(result).upper() == str(result)
+
+    def test_valid_mac_dot_format(self):
+        """Should accept MAC addresses in dot format."""
+        result = MacAddress("001B.4411.3AB7")
+        assert str(result).upper() == str(result)
+
+    def test_mac_uppercase_conversion(self):
+        """Should convert MAC to uppercase."""
+        result = MacAddress("aa:bb:cc:dd:ee:ff")
+        assert str(result) == "AA:BB:CC:DD:EE:FF"
+
+    def test_reject_invalid_mac(self):
+        """Should reject invalid MAC addresses."""
+        invalid_macs = [
+            "00:1B:44:11:3A",  # Too short
+            "00:1B:44:11:3A:B7:C8",  # Too long
+            "GG:1B:44:11:3A:B7",  # Invalid hex
+            "not-a-mac",
+        ]
+        for mac in invalid_macs:
+            with pytest.raises(ValueError, match="Invalid MAC address"):
+                MacAddress(mac)
+
+    def test_mac_type_error(self):
+        """Should reject non-string inputs."""
+        with pytest.raises(TypeError):
+            MacAddress(123)  # type: ignore
+
+
+# ==============================================================================
+# ConStr Tests
+# ==============================================================================
+
+
+class TestConStr:
+    """Tests for ConStr type."""
+
+    def test_constr_no_constraints(self):
+        """Should accept any string with no constraints."""
+        result = ConStr("any string")
+        assert str(result) == "any string"
+
+    def test_constr_min_length(self):
+        """Should enforce minimum length."""
+        result = ConStr("hello", min_length=3)
+        assert str(result) == "hello"
+
+        with pytest.raises(ValueError, match="at least"):
+            ConStr("hi", min_length=5)
+
+    def test_constr_max_length(self):
+        """Should enforce maximum length."""
+        result = ConStr("hi", max_length=5)
+        assert str(result) == "hi"
+
+        with pytest.raises(ValueError, match="at most"):
+            ConStr("too long", max_length=3)
+
+    def test_constr_pattern(self):
+        """Should enforce regex pattern."""
+        result = ConStr("abc123", pattern=r"^[a-z0-9]+$")
+        assert str(result) == "abc123"
+
+        with pytest.raises(ValueError, match="must match pattern"):
+            ConStr("ABC", pattern=r"^[a-z]+$")
+
+    def test_constr_all_constraints(self):
+        """Should enforce all constraints together."""
+        result = ConStr("abc123", min_length=3, max_length=10, pattern=r"^[a-z0-9]+$")
+        assert str(result) == "abc123"
+
+        # Too short
+        with pytest.raises(ValueError):
+            ConStr("ab", min_length=3, max_length=10, pattern=r"^[a-z0-9]+$")
+
+        # Too long
+        with pytest.raises(ValueError):
+            ConStr("abcdefghijk", min_length=3, max_length=10, pattern=r"^[a-z0-9]+$")
+
+        # Pattern mismatch
+        with pytest.raises(ValueError):
+            ConStr("ABC", min_length=3, max_length=10, pattern=r"^[a-z0-9]+$")
+
+    def test_constr_type_error(self):
+        """Should reject non-string inputs."""
+        with pytest.raises(TypeError):
+            ConStr(123)  # type: ignore
+
+
+# ==============================================================================
+# ByteSize Tests
+# ==============================================================================
+
+
+class TestByteSize:
+    """Tests for ByteSize type."""
+
+    def test_bytesize_from_int(self):
+        """Should accept integer bytes."""
+        result = ByteSize(1024)
+        assert int(result) == 1024
+
+    def test_bytesize_from_string_bytes(self):
+        """Should parse byte strings."""
+        result = ByteSize("100B")
+        assert int(result) == 100
+
+    def test_bytesize_kb(self):
+        """Should parse KB units."""
+        result = ByteSize("1KB")
+        assert int(result) == 1000
+
+    def test_bytesize_mb(self):
+        """Should parse MB units."""
+        result = ByteSize("1MB")
+        assert int(result) == 1000**2
+
+    def test_bytesize_gb(self):
+        """Should parse GB units."""
+        result = ByteSize("1GB")
+        assert int(result) == 1000**3
+
+    def test_bytesize_kib(self):
+        """Should parse KiB (binary) units."""
+        result = ByteSize("1KiB")
+        assert int(result) == 1024
+
+    def test_bytesize_mib(self):
+        """Should parse MiB (binary) units."""
+        result = ByteSize("1MiB")
+        assert int(result) == 1024**2
+
+    def test_bytesize_gib(self):
+        """Should parse GiB (binary) units."""
+        result = ByteSize("1GiB")
+        assert int(result) == 1024**3
+
+    def test_bytesize_case_insensitive(self):
+        """Should handle case-insensitive units."""
+        assert int(ByteSize("1mb")) == 1000**2
+        assert int(ByteSize("1MB")) == 1000**2
+        assert int(ByteSize("1Mb")) == 1000**2
+
+    def test_bytesize_with_spaces(self):
+        """Should handle sizes with spaces."""
+        result = ByteSize("100 MB")
+        assert int(result) == 100 * 1000**2
+
+    def test_reject_invalid_bytesize(self):
+        """Should reject invalid byte sizes."""
+        invalid_sizes = [
+            "abc",
+            "100XB",  # Invalid unit
+            "",
+        ]
+        for size in invalid_sizes:
+            with pytest.raises(ValueError):
+                ByteSize(size)
+
+    def test_bytesize_type_error(self):
+        """Should reject invalid input types."""
+        with pytest.raises(TypeError):
+            ByteSize([])  # type: ignore
+
+
+# ==============================================================================
+# PastDate Tests
+# ==============================================================================
+
+
+class TestPastDate:
+    """Tests for PastDate type."""
+
+    def test_valid_past_date_from_date(self):
+        """Should accept dates in the past."""
+        yesterday = date.today() - timedelta(days=1)
+        result = PastDate(yesterday)
+        assert result == yesterday
+
+    def test_valid_past_date_from_string(self):
+        """Should accept ISO date strings in the past."""
+        yesterday = date.today() - timedelta(days=1)
+        result = PastDate(yesterday.isoformat())
+        assert result == yesterday
+
+    def test_reject_today(self):
+        """Should reject today's date."""
+        today = date.today()
+        with pytest.raises(ValueError, match="must be in the past"):
+            PastDate(today)
+
+    def test_reject_future_date(self):
+        """Should reject future dates."""
+        tomorrow = date.today() + timedelta(days=1)
+        with pytest.raises(ValueError, match="must be in the past"):
+            PastDate(tomorrow)
+
+    def test_past_date_invalid_string(self):
+        """Should reject invalid date strings."""
+        with pytest.raises(ValueError, match="Invalid date format"):
+            PastDate("not-a-date")
+
+    def test_past_date_type_error(self):
+        """Should reject invalid input types."""
+        with pytest.raises(TypeError):
+            PastDate(123)  # type: ignore
+
+
+# ==============================================================================
+# FutureDate Tests
+# ==============================================================================
+
+
+class TestFutureDate:
+    """Tests for FutureDate type."""
+
+    def test_valid_future_date_from_date(self):
+        """Should accept dates in the future."""
+        tomorrow = date.today() + timedelta(days=1)
+        result = FutureDate(tomorrow)
+        assert result == tomorrow
+
+    def test_valid_future_date_from_string(self):
+        """Should accept ISO date strings in the future."""
+        tomorrow = date.today() + timedelta(days=1)
+        result = FutureDate(tomorrow.isoformat())
+        assert result == tomorrow
+
+    def test_reject_today(self):
+        """Should reject today's date."""
+        today = date.today()
+        with pytest.raises(ValueError, match="must be in the future"):
+            FutureDate(today)
+
+    def test_reject_past_date(self):
+        """Should reject past dates."""
+        yesterday = date.today() - timedelta(days=1)
+        with pytest.raises(ValueError, match="must be in the future"):
+            FutureDate(yesterday)
+
+    def test_future_date_invalid_string(self):
+        """Should reject invalid date strings."""
+        with pytest.raises(ValueError, match="Invalid date format"):
+            FutureDate("not-a-date")
+
+    def test_future_date_type_error(self):
+        """Should reject invalid input types."""
+        with pytest.raises(TypeError):
+            FutureDate(123)  # type: ignore

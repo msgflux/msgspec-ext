@@ -8,10 +8,18 @@ import msgspec
 from msgspec_ext.fast_dotenv import load_dotenv
 from msgspec_ext.types import (
     AnyUrl,
+    ByteSize,
     DirectoryPath,
     EmailStr,
     FilePath,
+    FutureDate,
     HttpUrl,
+    IPv4Address,
+    IPv6Address,
+    IPvAnyAddress,
+    Json,
+    MacAddress,
+    PastDate,
     PaymentCardNumber,
     PostgresDsn,
     RedisDsn,
@@ -47,10 +55,27 @@ def _dec_hook(typ: type, obj: Any) -> Any:
         PaymentCardNumber,
         FilePath,
         DirectoryPath,
+        IPv4Address,
+        IPv6Address,
+        IPvAnyAddress,
+        Json,
+        MacAddress,
     )
     if typ in custom_types:
         if isinstance(obj, str):
             return typ(obj)
+
+    # Handle ByteSize (accepts str or int)
+    if typ is ByteSize:
+        return ByteSize(obj)
+
+    # Handle date types (PastDate, FutureDate)
+    if typ in (PastDate, FutureDate):
+        return typ(obj)
+
+    # Handle ConStr (string with constraints) - but needs special handling
+    # ConStr requires additional parameters, so it can't be used directly in dec_hook
+    # Users should use it manually or with custom validators
 
     # If we don't handle it, let msgspec raise an error
     raise NotImplementedError(f"Type {typ} unsupported in dec_hook")
