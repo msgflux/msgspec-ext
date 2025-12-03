@@ -62,6 +62,25 @@ class AppSettings(BaseSettings):
 
 # Load from environment variables and .env file
 settings = AppSettings()
+
+print(settings.name)  # my-app
+print(settings.port)  # 8000
+print(settings.admin_email)  # admin@example.com
+
+# Serialize to dict
+print(settings.model_dump())
+# Output: {
+#   'name': 'my-app',
+#   'debug': False,
+#   'port': 8000,
+#   'workers': 4,
+#   'admin_email': 'admin@example.com',
+#   'api_url': 'https://api.example.com'
+# }
+
+# Serialize to JSON
+print(settings.model_dump_json())
+# Output: '{"name":"my-app","debug":false,"port":8000,"workers":4,"admin_email":"admin@example.com","api_url":"https://api.example.com"}'
 ```
 
 Set environment variables:
@@ -274,9 +293,15 @@ request = msgspec.json.decode(
     dec_hook=dec_hook
 )
 
+print(request.email)  # user@example.com
+print(request.age)  # 25
+print(int(request.max_storage))  # 1000000000
+
 # Serialize response
 response = UserResponse(id=1, email=request.email, website=request.website)
 json_bytes = msgspec.json.encode(response, enc_hook=enc_hook)
+print(json_bytes)
+# b'{"id":1,"email":"user@example.com","website":"https://example.com"}'
 ```
 
 ### Configuration Files with Validation
@@ -297,7 +322,13 @@ with open("config.json", "rb") as f:
     config = msgspec.json.decode(f.read(), type=ServerConfig, dec_hook=dec_hook)
 
 print(f"Server: {config.host}:{config.port}")
+# Server: 192.168.1.50:8080
+
 print(f"Max upload: {int(config.max_upload)} bytes")
+# Max upload: 100000000 bytes
+
+print(f"Workers: {config.workers}")
+# Workers: 4
 ```
 
 ### Message Queue Data Validation
@@ -379,7 +410,23 @@ class AppSettings(BaseSettings):
 
 # Loads from DATABASE__HOST, DATABASE__PORT, DATABASE__URL, etc.
 settings = AppSettings()
-print(settings.database.host)
+
+print(settings.name)  # My App
+print(settings.database.host)  # localhost
+print(settings.database.port)  # 5432
+
+# Full nested dump
+print(settings.model_dump())
+# Output: {
+#   'name': 'My App',
+#   'debug': False,
+#   'database': {
+#     'host': 'localhost',
+#     'port': 5432,
+#     'name': 'myapp',
+#     'url': 'postgresql://user:pass@localhost:5432/myapp'
+#   }
+# }
 ```
 
 ### Secret Masking
@@ -392,8 +439,15 @@ class AppSettings(BaseSettings):
     db_password: SecretStr
 
 settings = AppSettings()
-print(settings.api_key)  # Output: **********
-print(settings.api_key.get_secret_value())  # Output: actual-secret-key
+
+print(settings.api_key)  # **********
+print(settings.api_key.get_secret_value())  # actual-secret-key
+
+print(settings.model_dump())
+# Output: {'api_key': '**********', 'db_password': '**********'}
+
+print(settings.model_dump_json())
+# Output: '{"api_key":"**********","db_password":"**********"}'
 ```
 
 ### Storage Size Parsing
@@ -412,6 +466,9 @@ class StorageSettings(BaseSettings):
 settings = StorageSettings()
 print(int(settings.max_upload))  # 10000000 (10 MB in bytes)
 print(int(settings.cache_limit))  # 1000000000 (1 GB in bytes)
+
+print(settings.model_dump())
+# Output: {'max_upload': 10000000, 'cache_limit': 1000000000}
 ```
 
 Supported units: `B`, `KB`, `MB`, `GB`, `TB`, `KiB`, `MiB`, `GiB`, `TiB`
