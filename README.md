@@ -17,6 +17,10 @@
   <a href="https://github.com/msgflux/msgspec-ext/blob/main/LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue.svg" alt="License"></a>
 </p>
 
+<p align="center">
+  <a href="https://vilsonrodrigues.medium.com/msgspec-ext-high-performance-settings-management-and-validation-library-extending-msgspec-859a8598cccb">📖 Read the announcement on Medium</a>
+</p>
+
 ## Features
 
 - ⚡ **7x faster than pydantic-settings** - Built on [msgspec](https://github.com/jcrist/msgspec)'s high-performance validation
@@ -385,6 +389,24 @@ APP_DEBUG=true
 APP_PORT=3000
 APP_DATABASE__HOST=localhost
 APP_DATABASE__PORT=5432
+```
+
+### Standalone `load_dotenv`
+
+```python
+from msgspec_ext import load_dotenv
+
+# Load .env file into os.environ (does not override existing vars)
+load_dotenv()
+
+# Load from a custom path
+load_dotenv("config/.env")
+
+# Override existing environment variables
+load_dotenv(".env", override=True)
+
+# Custom encoding
+load_dotenv(".env", encoding="latin-1")
 ```
 
 ### Nested Configuration

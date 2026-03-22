@@ -1,5 +1,6 @@
 import msgspec
 
+from .fast_dotenv import load_dotenv
 from .settings import BaseSettings, SettingsConfigDict, _dec_hook, _enc_hook
 from .types import (
     AnyUrl,
@@ -69,4 +70,5 @@ __all__ = [
     "SettingsConfigDict",
     "dec_hook",
     "enc_hook",
+    "load_dotenv",
 ]
