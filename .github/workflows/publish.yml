@@ -93,7 +93,7 @@ jobs:
           echo "✅ Created and pushed tag: $VERSION"
 
       - name: Upload dist artifacts
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: python-package-distributions
           path: dist/
@@ -108,7 +108,7 @@ jobs:
 
     steps:
       - name: Download dist artifacts
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v6
         with:
           name: python-package-distributions
           path: dist/
