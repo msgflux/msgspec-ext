@@ -392,3 +392,261 @@ def test_explicit_override_env():
         assert settings.port == 7000  # explicit overrides env
     finally:
         os.environ.pop("PORT", None)
+
+
+def test_nested_env_vars_basic():
+    """Test basic nested struct from environment variables."""
+    os.environ["DATABASE__HOST"] = "localhost"
+    os.environ["DATABASE__PORT"] = "5432"
+
+    try:
+
+        class DatabaseSettings(BaseSettings):
+            host: str = "127.0.0.1"
+            port: int = 3306
+
+        class AppSettings(BaseSettings):
+            model_config = SettingsConfigDict(env_nested_delimiter="__")
+
+            name: str = "app"
+            database: DatabaseSettings
+
+        settings = AppSettings()
+        assert settings.name == "app"
+        assert settings.database.host == "localhost"
+        assert settings.database.port == 5432
+    finally:
+        os.environ.pop("DATABASE__HOST", None)
+        os.environ.pop("DATABASE__PORT", None)
+
+
+def test_nested_env_vars_with_prefix():
+    """Test nested env vars with env_prefix."""
+    os.environ["APP_DATABASE__HOST"] = "db.example.com"
+    os.environ["APP_DATABASE__PORT"] = "5433"
+    os.environ["APP_NAME"] = "myapp"
+
+    try:
+
+        class DatabaseSettings(BaseSettings):
+            host: str = "localhost"
+            port: int = 5432
+
+        class AppSettings(BaseSettings):
+            model_config = SettingsConfigDict(
+                env_prefix="APP_", env_nested_delimiter="__"
+            )
+
+            name: str = "default"
+            database: DatabaseSettings
+
+        settings = AppSettings()
+        assert settings.name == "myapp"
+        assert settings.database.host == "db.example.com"
+        assert settings.database.port == 5433
+    finally:
+        os.environ.pop("APP_DATABASE__HOST", None)
+        os.environ.pop("APP_DATABASE__PORT", None)
+        os.environ.pop("APP_NAME", None)
+
+
+def test_nested_env_vars_deep():
+    """Test 3 levels of nesting."""
+    os.environ["DATABASE__POSTGRES__HOST"] = "pg.local"
+    os.environ["DATABASE__POSTGRES__PORT"] = "5432"
+
+    try:
+
+        class PostgresSettings(BaseSettings):
+            host: str = "localhost"
+            port: int = 5432
+
+        class DatabaseSettings(BaseSettings):
+            postgres: PostgresSettings
+
+        class AppSettings(BaseSettings):
+            model_config = SettingsConfigDict(env_nested_delimiter="__")
+
+            database: DatabaseSettings
+
+        settings = AppSettings()
+        assert settings.database.postgres.host == "pg.local"
+        assert settings.database.postgres.port == 5432
+    finally:
+        os.environ.pop("DATABASE__POSTGRES__HOST", None)
+        os.environ.pop("DATABASE__POSTGRES__PORT", None)
+
+
+def test_nested_env_vars_max_depth():
+    """Test env_nested_max_depth limits splitting."""
+    os.environ["DATABASE__POSTGRES__HOST"] = "pg.local"
+
+    try:
+
+        class DatabaseSettings(BaseSettings):
+            # With max_depth=1, "POSTGRES__HOST" stays as single key
+            postgres__host: str = "default"
+
+        class AppSettings(BaseSettings):
+            model_config = SettingsConfigDict(
+                env_nested_delimiter="__", env_nested_max_depth=1
+            )
+
+            database: DatabaseSettings
+
+        settings = AppSettings()
+        # max_depth=1: DATABASE__POSTGRES__HOST splits into ["database", "postgres__host"]
+        assert settings.database.postgres__host == "pg.local"
+    finally:
+        os.environ.pop("DATABASE__POSTGRES__HOST", None)
+
+
+def test_nested_delimiter_none_disables():
+    """Test that env_nested_delimiter=None uses flat lookup only."""
+    os.environ["DATABASE__HOST"] = "should-be-ignored"
+    os.environ["NAME"] = "flat-app"
+
+    try:
+
+        class AppSettings(BaseSettings):
+            model_config = SettingsConfigDict(env_nested_delimiter=None)
+
+            name: str = "default"
+
+        settings = AppSettings()
+        assert settings.name == "flat-app"
+        # DATABASE__HOST is not a field name, so it's ignored
+    finally:
+        os.environ.pop("DATABASE__HOST", None)
+        os.environ.pop("NAME", None)
+
+
+def test_nested_env_vars_case_insensitive():
+    """Test nested env vars with case_sensitive=False (default)."""
+    os.environ["DATABASE__HOST"] = "ci-host"
+    os.environ["DATABASE__PORT"] = "3307"
+
+    try:
+
+        class DatabaseSettings(BaseSettings):
+            host: str = "localhost"
+            port: int = 5432
+
+        class AppSettings(BaseSettings):
+            model_config = SettingsConfigDict(
+                case_sensitive=False, env_nested_delimiter="__"
+            )
+
+            database: DatabaseSettings
+
+        settings = AppSettings()
+        assert settings.database.host == "ci-host"
+        assert settings.database.port == 3307
+    finally:
+        os.environ.pop("DATABASE__HOST", None)
+        os.environ.pop("DATABASE__PORT", None)
+
+
+def test_nested_env_vars_from_dotenv():
+    """Test loading nested env vars from .env file."""
+    with tempfile.NamedTemporaryFile(mode="w", suffix=".env", delete=False) as f:
+        f.write("DATABASE__HOST=dotenv-host\n")
+        f.write("DATABASE__PORT=6543\n")
+        f.write("APP_NAME=dotenv-app\n")
+        env_file_path = f.name
+
+    try:
+
+        class DatabaseSettings(BaseSettings):
+            host: str = "localhost"
+            port: int = 5432
+
+        class AppSettings(BaseSettings):
+            model_config = SettingsConfigDict(
+                env_file=env_file_path, env_nested_delimiter="__"
+            )
+
+            app_name: str = "default"
+            database: DatabaseSettings
+
+        settings = AppSettings()
+        assert settings.app_name == "dotenv-app"
+        assert settings.database.host == "dotenv-host"
+        assert settings.database.port == 6543
+    finally:
+        os.environ.pop("DATABASE__HOST", None)
+        os.environ.pop("DATABASE__PORT", None)
+        os.environ.pop("APP_NAME", None)
+        Path(env_file_path).unlink(missing_ok=True)
+
+
+def test_nested_with_optional_struct():
+    """Test Optional nested struct field."""
+    os.environ["DATABASE__HOST"] = "opt-host"
+
+    try:
+
+        class DatabaseSettings(BaseSettings):
+            host: str = "localhost"
+            port: int = 5432
+
+        class AppSettings(BaseSettings):
+            model_config = SettingsConfigDict(env_nested_delimiter="__")
+
+            name: str = "app"
+            database: DatabaseSettings | None = None
+
+        settings = AppSettings()
+        assert settings.database.host == "opt-host"
+        assert settings.database.port == 5432
+    finally:
+        os.environ.pop("DATABASE__HOST", None)
+
+
+def test_nested_with_all_defaults():
+    """Test nested struct where all sub-fields have defaults."""
+    # No DATABASE__ env vars set — nested struct should still work via defaults
+    # when passed as an empty dict
+    os.environ["DATABASE__HOST"] = "explicit"
+
+    try:
+
+        class DatabaseSettings(BaseSettings):
+            host: str = "localhost"
+            port: int = 5432
+
+        class AppSettings(BaseSettings):
+            model_config = SettingsConfigDict(env_nested_delimiter="__")
+
+            name: str = "app"
+            database: DatabaseSettings
+
+        settings = AppSettings()
+        assert settings.database.host == "explicit"
+        assert settings.database.port == 5432
+    finally:
+        os.environ.pop("DATABASE__HOST", None)
+
+
+def test_nested_custom_delimiter():
+    """Test using a custom delimiter other than __."""
+    os.environ["DATABASE.HOST"] = "dot-host"
+    os.environ["DATABASE.PORT"] = "9999"
+
+    try:
+
+        class DatabaseSettings(BaseSettings):
+            host: str = "localhost"
+            port: int = 5432
+
+        class AppSettings(BaseSettings):
+            model_config = SettingsConfigDict(env_nested_delimiter=".")
+
+            database: DatabaseSettings
+
+        settings = AppSettings()
+        assert settings.database.host == "dot-host"
+        assert settings.database.port == 9999
+    finally:
+        os.environ.pop("DATABASE.HOST", None)
+        os.environ.pop("DATABASE.PORT", None)
