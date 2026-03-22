@@ -9,6 +9,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [0.5.1] - 2026-03-22
 
+### Added
+- **`env_nested_delimiter` implementation** - Previously declared but not functional, now fully implemented with delimiter-aware env var scanning, recursive type resolution, and nested dict unfolding (contributed by [@FatJun](https://github.com/FatJun) in [#49](https://github.com/msgflux/msgspec-ext/pull/49))
+- `env_nested_max_depth` config option to limit nesting depth (0 = unlimited)
+- `load_dotenv` exported in public API (`from msgspec_ext import load_dotenv`)
+- 10 new tests for nested delimiter functionality
+
+### Changed
+- `env_nested_delimiter` default changed from `"__"` to `None` (opt-in behavior)
+
+### Fixed
+- `env_nested_delimiter` was declared in `SettingsConfigDict` but never used ([#48](https://github.com/msgflux/msgspec-ext/issues/48))
+
 ## [0.5.0] - 2025-12-03
 
 ### Added
@@ -152,7 +164,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Bulk validation in C via msgspec (zero Python loops)
 - Cached encoders/decoders for repeated use
 
-[Unreleased]: https://github.com/msgflux/msgspec-ext/compare/v0.4.0...HEAD
+[Unreleased]: https://github.com/msgflux/msgspec-ext/compare/v0.5.1...HEAD
+[0.5.1]: https://github.com/msgflux/msgspec-ext/compare/v0.5.0...v0.5.1
+[0.5.0]: https://github.com/msgflux/msgspec-ext/compare/v0.4.0...v0.5.0
 [0.4.0]: https://github.com/msgflux/msgspec-ext/compare/v0.3.4...v0.4.0
 [0.3.4]: https://github.com/msgflux/msgspec-ext/compare/v0.3.3...v0.3.4
 [0.3.3]: https://github.com/msgflux/msgspec-ext/compare/v0.3.2...v0.3.3
