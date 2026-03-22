@@ -387,6 +387,24 @@ APP_DATABASE__HOST=localhost
 APP_DATABASE__PORT=5432
 ```
 
+### Standalone `load_dotenv`
+
+```python
+from msgspec_ext import load_dotenv
+
+# Load .env file into os.environ (does not override existing vars)
+load_dotenv()
+
+# Load from a custom path
+load_dotenv("config/.env")
+
+# Override existing environment variables
+load_dotenv(".env", override=True)
+
+# Custom encoding
+load_dotenv(".env", encoding="latin-1")
+```
+
 ### Nested Configuration
 
 ```python
