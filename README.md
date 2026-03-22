@@ -17,6 +17,10 @@
   <a href="https://github.com/msgflux/msgspec-ext/blob/main/LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue.svg" alt="License"></a>
 </p>
 
+<p align="center">
+  <a href="https://vilsonrodrigues.medium.com/msgspec-ext-high-performance-settings-management-and-validation-library-extending-msgspec-859a8598cccb">📖 Read the announcement on Medium</a>
+</p>
+
 ## Features
 
 - ⚡ **7x faster than pydantic-settings** - Built on [msgspec](https://github.com/jcrist/msgspec)'s high-performance validation
